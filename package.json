@@ -1,0 +1,45 @@
+{
+  "name": "relacionamentos-quiz",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Quiz adaptativo sobre temas de relacionamento com recomendação de módulos de livro, checkout simulado (Pix, boleto e cartão) e painel administrativo.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "postinstall": "npm run db:generate",
+    "setup": "npm run db:generate && npm run db:deploy && npm run db:seed",
+    "dev": "npm run dev -w @relacionamentos/web",
+    "build": "npm run build -w @relacionamentos/web",
+    "start": "npm run start -w @relacionamentos/web",
+    "db:generate": "npm run generate -w @relacionamentos/db",
+    "db:migrate": "npm run migrate -w @relacionamentos/db",
+    "db:deploy": "npm run deploy -w @relacionamentos/db",
+    "db:seed": "npm run seed -w @relacionamentos/db",
+    "db:reset": "npm run reset -w @relacionamentos/db",
+    "db:studio": "npm run studio -w @relacionamentos/db",
+    "db:cleanup": "npm run cleanup -w @relacionamentos/db",
+    "admin:create": "npm run admin:create -w @relacionamentos/db --",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e -w @relacionamentos/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint -w @relacionamentos/web"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.6",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "prisma@7.10.0": true,
+    "better-sqlite3@12.11.1": true,
+    "unrs-resolver@1.12.2": true,
+    "@prisma/engines@7.10.0": true
+  }
+}

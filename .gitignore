@@ -1,0 +1,42 @@
+# dependências
+node_modules/
+
+# build / cache
+.next/
+next-env.d.ts
+out/
+dist/
+*.tsbuildinfo
+.turbo/
+coverage/
+
+# banco de dados local (SQLite) — nunca versionar dados reais
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# cliente Prisma gerado (recriado com `npm run db:generate`)
+packages/db/src/generated/
+
+# variáveis de ambiente (segredos)
+.env
+.env.*
+!.env.example
+
+# testes E2E
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/
+
+# ferramentas locais
+.claude/
+
+# sistema / editores
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.log
+npm-debug.log*

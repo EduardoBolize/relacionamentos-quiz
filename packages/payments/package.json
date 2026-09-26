@@ -1,0 +1,21 @@
+{
+  "name": "@relacionamentos/payments",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Camada de pagamentos: contrato PaymentGateway, precificação e gateway simulado (Pix, boleto e cartão).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@types/qrcode": "1.5.6"
+  }
+}

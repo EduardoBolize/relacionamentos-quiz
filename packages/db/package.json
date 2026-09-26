@@ -1,0 +1,33 @@
+{
+  "name": "@relacionamentos/db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Esquema do banco (Prisma), cliente, carregamento da definição do quiz e seed de demonstração.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./demo-content": "./seed/demo-content.ts",
+    "./seed": "./seed/seed-lib.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "deploy": "prisma migrate deploy",
+    "seed": "tsx seed/seed.ts",
+    "reset": "prisma migrate reset --force && tsx seed/seed.ts --force",
+    "studio": "prisma studio",
+    "cleanup": "tsx scripts/cleanup.ts",
+    "admin:create": "tsx scripts/create-admin.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@prisma/adapter-better-sqlite3": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "@relacionamentos/quiz-engine": "*",
+    "dotenv": "18.0.4"
+  },
+  "devDependencies": {
+    "prisma": "7.10.0"
+  }
+}

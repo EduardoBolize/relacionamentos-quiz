@@ -1,0 +1,17 @@
+{
+  "name": "@relacionamentos/quiz-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Motor de pontuação e recomendação do quiz (TypeScript puro, sem dependência de framework ou banco).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
+}

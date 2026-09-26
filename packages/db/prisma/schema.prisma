@@ -1,0 +1,342 @@
+// Esquema do banco de dados.
+//
+// SQLite é usado no desenvolvimento por não exigir instalação. Para produção, troque o
+// `provider` para "postgresql", ajuste `DATABASE_URL`, instale `@prisma/adapter-pg` e gere
+// novas migrações (veja README → "Banco de dados em produção").
+//
+// Campos com sufixo `Json` guardam JSON serializado como texto (portável entre bancos).
+// Campos "enum" são strings validadas na aplicação (SQLite não tem enums nativos).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─────────────────────────── Conteúdo do quiz (painel admin) ───────────────────────────
+
+model Category {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  name             String
+  shortDescription String
+  /// Texto cuidadoso (não diagnóstico) exibido quando o tema se destaca.
+  explanation      String
+  color            String   @default("#e0457b")
+  position         Int      @default(0)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  weights OptionWeight[]
+  modules ModuleCategory[]
+}
+
+model Stage {
+  id                    String      @id @default(cuid())
+  title                 String
+  description           String      @default("")
+  position              Int         @default(0)
+  active                Boolean     @default(true)
+  /// Condição de exibição (JSON). Vazio = sempre.
+  conditionJson         String?
+  /// Seção do livro relacionada à etapa (pergunta de concordância com o valor ao final).
+  offerModuleId         String?
+  offerModule           BookModule? @relation(fields: [offerModuleId], references: [id], onDelete: SetNull)
+  priceQuestionEnabled  Boolean     @default(true)
+  priceQuestionMinScore Int         @default(0)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  questions Question[]
+
+  @@index([position])
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  stageId       String
+  stage         Stage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  text          String
+  helpText      String?
+  /// single | multiple | scale
+  type          String   @default("single")
+  maxSelections Int?
+  scaleMinLabel String?
+  scaleMaxLabel String?
+  position      Int      @default(0)
+  required      Boolean  @default(true)
+  active        Boolean  @default(true)
+  conditionJson String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  options Option[]
+
+  @@index([stageId, position])
+}
+
+model Option {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String
+  position   Int      @default(0)
+
+  weights OptionWeight[]
+
+  @@index([questionId, position])
+}
+
+/// Quantos pontos uma opção soma em cada categoria.
+model OptionWeight {
+  optionId   String
+  option     Option   @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  weight     Int
+
+  @@id([optionId, categoryId])
+  @@index([categoryId])
+}
+
+model Rule {
+  id            String   @id @default(cuid())
+  name          String
+  description   String   @default("")
+  conditionJson String
+  effectsJson   String
+  priority      Int      @default(0)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+/// Seção (módulo) do livro.
+model BookModule {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  title          String
+  subtitle       String   @default("")
+  description    String
+  /// Prévia pública (markdown simples).
+  previewContent String
+  /// Conteúdo completo, liberado após o pagamento (markdown simples).
+  content        String
+  priceCents     Int
+  coverEmoji     String   @default("📘")
+  position       Int      @default(0)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  categories ModuleCategory[]
+  stages     Stage[]
+  orderItems OrderItem[]
+}
+
+model ModuleCategory {
+  moduleId   String
+  module     BookModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([moduleId, categoryId])
+}
+
+/// Configurações editáveis no painel (valor em JSON).
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────── Sessões do quiz e resultados ───────────────────────────
+
+model QuizSession {
+  id                String    @id @default(cuid())
+  /// in_progress | completed
+  status            String    @default("in_progress")
+  answersJson       String    @default("{}")
+  /// Resultado "congelado" no momento da conclusão (mudanças futuras nos pesos não o alteram).
+  resultJson        String?
+  primaryCategoryId String?
+  email             String?
+  emailConsentAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  completedAt       DateTime?
+
+  accessTokens SessionAccessToken[]
+  orders       Order[]
+
+  @@index([email])
+  @@index([status, createdAt])
+}
+
+/// Tokens de acesso ao resultado. Somente o hash SHA-256 é armazenado.
+model SessionAccessToken {
+  id         String      @id @default(cuid())
+  sessionId  String
+  session    QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tokenHash  String      @unique
+  /// quiz | recovery
+  source     String      @default("quiz")
+  createdAt  DateTime    @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  @@index([sessionId])
+}
+
+/// Links mágicos de recuperação de resultado enviados por e-mail (uso único, expiram).
+model RecoveryToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+}
+
+// ─────────────────────────── Pedidos e pagamentos ───────────────────────────
+
+model Order {
+  id              String       @id @default(cuid())
+  sessionId       String?
+  session         QuizSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  customerName    String
+  customerEmail   String
+  /// pending | paid | failed | expired | canceled | refunded
+  status          String       @default("pending")
+  /// pix | boleto | card
+  method          String
+  subtotalCents   Int
+  discountCents   Int          @default(0)
+  totalCents      Int
+  installments    Int          @default(1)
+  gateway         String
+  gatewayChargeId String?      @unique
+  /// Dados públicos do pagamento (código Pix, linha digitável, bandeira/últimos 4 dígitos).
+  paymentDataJson String?
+  failureReason   String?
+  paidAt          DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  items        OrderItem[]
+  events       PaymentEvent[]
+  accessTokens OrderAccessToken[]
+
+  @@index([status, createdAt])
+  @@index([customerEmail])
+}
+
+/// Links secretos de acesso ao pedido (página de pagamento e conteúdo comprado). Somente o hash é salvo.
+model OrderAccessToken {
+  id         String    @id @default(cuid())
+  orderId    String
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  @@index([orderId])
+}
+
+model OrderItem {
+  id         String     @id @default(cuid())
+  orderId    String
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  moduleId   String
+  module     BookModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  /// Cópia do título e do preço no momento da compra.
+  title      String
+  priceCents Int
+
+  @@index([orderId])
+}
+
+/// Eventos de webhook já processados (idempotência).
+model PaymentEvent {
+  id          String   @id
+  orderId     String?
+  order       Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  type        String
+  payloadJson String
+  receivedAt  DateTime @default(now())
+}
+
+// ─────────────────────────── Analytics ───────────────────────────
+
+/// Eventos de uso (somente com consentimento). Sem dados pessoais.
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  name      String
+  sessionId String?
+  propsJson String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([name, createdAt])
+}
+
+// ─────────────────────────── Administração ───────────────────────────
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         String    @default("admin")
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions  AdminSession[]
+  auditLogs AuditLog[]
+}
+
+model AdminSession {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  adminId    String
+  admin      AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  ip         String?
+  userAgent  String?
+
+  @@index([adminId])
+}
+
+model AuditLog {
+  id        String     @id @default(cuid())
+  adminId   String?
+  admin     AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  summary   String     @default("")
+  createdAt DateTime   @default(now())
+
+  @@index([createdAt])
+}
+
+/// Caixa de saída de e-mails do modo de desenvolvimento (provedor "outbox").
+model EmailOutbox {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String
+  body      String
+  createdAt DateTime @default(now())
+}
