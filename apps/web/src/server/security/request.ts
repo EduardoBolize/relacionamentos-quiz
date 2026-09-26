@@ -4,20 +4,25 @@ import { getEnv } from '../env';
 import { HttpError } from '../http';
 
 const MAX_JSON_BYTES = 64 * 1024;
+const IP_PATTERN = /^(?:\d{1,3}(?:\.\d{1,3}){3}|[0-9a-fA-F:]{2,39}(?:%[0-9A-Za-z]{1,16})?|::ffff:\d{1,3}(?:\.\d{1,3}){3})$/;
 
 /**
- * IP do cliente para limitação de requisições. Só confia em `X-Forwarded-For` quando
- * `TRUST_PROXY=true` (atrás de um proxy reverso que sobrescreve o cabeçalho); caso contrário
- * o valor poderia ser forjado para burlar os limites.
+ * IP do cliente para limitação de requisições, ou `null` quando não é possível saber com segurança.
+ *
+ * O `X-Forwarded-For` só é confiável até onde há proxies nossos: cada proxy ACRESCENTA o endereço de
+ * quem o chamou no fim da lista, e tudo à esquerda pode ter sido escrito pelo próprio cliente. Por isso
+ * lemos o valor que está `TRUST_PROXY_HOPS` posições a partir da DIREITA. Sem proxy configurado,
+ * o cabeçalho é ignorado (o Next.js só o preenche quando o cliente não o envia).
  */
-export function getClientIp(request: Request): string {
-  if (getEnv().TRUST_PROXY) {
-    const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-    const real = request.headers.get('x-real-ip')?.trim();
-    const ip = forwarded || real;
-    if (ip && ip.length <= 64) return ip;
-  }
-  return 'local';
+export function getClientIp(request: Request): string | null {
+  const hops = getEnv().trustedProxyHops;
+  if (hops <= 0) return null;
+  const chain = (request.headers.get('x-forwarded-for') ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const candidate = chain[chain.length - hops];
+  return candidate && candidate.length <= 45 && IP_PATTERN.test(candidate) ? candidate : null;
 }
 
 /**
@@ -50,19 +55,40 @@ export function assertSameOrigin(request: Request): void {
   throw new HttpError(403, 'forbidden_origin', 'Origem da requisição não permitida.');
 }
 
+/**
+ * Lê o corpo como texto, interrompendo a leitura assim que o limite é ultrapassado — inclusive em
+ * requisições sem `Content-Length` (transferência em partes), que de outra forma poderiam esgotar a memória.
+ */
+export async function readBodyText(request: Request, maxBytes: number): Promise<string> {
+  const declared = Number(request.headers.get('content-length') ?? '');
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    throw new HttpError(413, 'payload_too_large', 'Requisição muito grande.');
+  }
+  if (!request.body) return '';
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw new HttpError(413, 'payload_too_large', 'Requisição muito grande.');
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
 /** Lê e valida um corpo JSON com limite de tamanho e esquema zod. */
 export async function readJson<T extends z.ZodType>(request: Request, schema: T, maxBytes = MAX_JSON_BYTES): Promise<z.infer<T>> {
   const contentType = request.headers.get('content-type') ?? '';
   if (!contentType.toLowerCase().startsWith('application/json')) {
     throw new HttpError(415, 'unsupported_media_type', 'Envie os dados em JSON.');
   }
-  const declared = Number(request.headers.get('content-length') ?? '0');
-  if (declared > maxBytes) throw new HttpError(413, 'payload_too_large', 'Requisição muito grande.');
-
-  const text = await request.text();
-  if (Buffer.byteLength(text, 'utf8') > maxBytes) {
-    throw new HttpError(413, 'payload_too_large', 'Requisição muito grande.');
-  }
+  const text = await readBodyText(request, maxBytes);
 
   let data: unknown;
   try {

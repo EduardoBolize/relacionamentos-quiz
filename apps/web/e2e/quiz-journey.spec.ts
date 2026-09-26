@@ -50,6 +50,16 @@ test('jornada completa: landing → quiz adaptativo → resultado → checkout P
   await expect(page.getByRole('progressbar')).toHaveCount(6);
   const resultUrl = page.url();
 
+  // link de compartilhamento: somente leitura (sem excluir, sem e-mail)
+  await page.getByRole('button', { name: 'Compartilhar (somente leitura)' }).click();
+  const shareUrl = await page.locator('span.font-mono').filter({ hasText: '/resultado/' }).innerText();
+  expect(shareUrl).not.toBe(resultUrl);
+  const viewer = await page.context().newPage();
+  await viewer.goto(shareUrl);
+  await expect(viewer.getByText('Resultado compartilhado')).toBeVisible();
+  await expect(viewer.getByRole('button', { name: /Excluir meus dados/ })).toHaveCount(0);
+  await viewer.close();
+
   // checkout a partir da primeira seção recomendada
   await page.getByRole('link', { name: /Quero esta seção/ }).first().click();
   await expect(page.getByRole('heading', { name: 'Finalizar compra' })).toBeVisible();

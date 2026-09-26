@@ -1,6 +1,6 @@
-import { HttpError, json, route } from '@/server/http';
-import { enforceRateLimit } from '@/server/security/rate-limit';
-import { getClientIp } from '@/server/security/request';
+import { json, route } from '@/server/http';
+import { MINUTE, enforceClientRateLimit } from '@/server/security/rate-limit';
+import { getClientIp, readBodyText } from '@/server/security/request';
 import { handlePaymentWebhook } from '@/server/services/payment-webhook-service';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -10,14 +10,8 @@ const MAX_BODY_BYTES = 64 * 1024;
  * provedor): a autenticidade é garantida pela assinatura HMAC do corpo, checada pelo gateway.
  */
 export const POST = route(async (request) => {
-  enforceRateLimit(`webhook:${getClientIp(request)}`, 600, 60 * 1000);
-  if (Number(request.headers.get('content-length') ?? '0') > MAX_BODY_BYTES) {
-    throw new HttpError(413, 'payload_too_large', 'Corpo muito grande.');
-  }
-  const rawBody = await request.text();
-  if (Buffer.byteLength(rawBody, 'utf8') > MAX_BODY_BYTES) {
-    throw new HttpError(413, 'payload_too_large', 'Corpo muito grande.');
-  }
+  enforceClientRateLimit('webhook', getClientIp(request), { perIp: 600, windowMs: MINUTE });
+  const rawBody = await readBodyText(request, MAX_BODY_BYTES);
   const outcome = await handlePaymentWebhook(rawBody, request.headers);
   return json({ received: true, outcome });
 });

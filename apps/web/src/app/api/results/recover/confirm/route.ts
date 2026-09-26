@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { trackEvent } from '@/server/analytics';
 import { CONSENT_COOKIE, hasAnalyticsConsent } from '@/server/cookies';
 import { HttpError, json, route } from '@/server/http';
-import { enforceRateLimit } from '@/server/security/rate-limit';
+import { MINUTE, enforceClientRateLimit } from '@/server/security/rate-limit';
 import { assertSameOrigin, getClientIp, readJson } from '@/server/security/request';
 import { consumeRecovery } from '@/server/services/result-service';
 
@@ -14,7 +14,7 @@ const schema = z.object({ token: z.string().max(100) }).strict();
  */
 export const POST = route(async (request) => {
   assertSameOrigin(request);
-  enforceRateLimit(`recover-confirm:${getClientIp(request)}`, 20, 15 * 60 * 1000);
+  enforceClientRateLimit('recover-confirm', getClientIp(request), { perIp: 20, global: 1000, windowMs: 15 * MINUTE });
   const { token } = await readJson(request, schema);
 
   const results = await consumeRecovery(token);

@@ -17,7 +17,11 @@ import { SETTING_KEYS, settingsUpdateSchema } from '../settings';
 
 // ───────────────────────────── Esquemas de entrada ─────────────────────────────
 
-const id = z.string().trim().min(1).max(64);
+/** Ids gerados pelo banco (cuid) ou legíveis do seed; recusa chaves especiais como `__proto__`. */
+const id = z
+  .string()
+  .trim()
+  .regex(/^(?!__)[A-Za-z0-9_-]{1,64}$/, 'Identificador inválido.');
 const slug = z
   .string()
   .trim()

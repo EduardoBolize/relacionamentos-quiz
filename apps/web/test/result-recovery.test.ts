@@ -6,6 +6,7 @@ import { resetRateLimits } from '@/server/security/rate-limit';
 import { generateToken, hashToken } from '@/server/security/tokens';
 import {
   consumeRecovery,
+  createShareLink,
   deleteResult,
   getResultView,
   requestRecovery,
@@ -52,7 +53,7 @@ describe('recuperação de resultado', () => {
   it('envia o link por e-mail (com consentimento) e permite recuperar por e-mail com link mágico de uso único', async () => {
     const email = uniqueEmail('recupera');
     const { token } = await playQuiz(CONFLICT_CHOICES);
-    await saveResultEmail(token, email.toUpperCase(), 'ip-teste');
+    await saveResultEmail(token, email.toUpperCase());
 
     const resultEmail = await lastEmailTo(email);
     expect(linkIn(resultEmail?.body, '/resultado/')).toBe(token);
@@ -83,7 +84,7 @@ describe('recuperação de resultado', () => {
   it('links de recuperação expiram', async () => {
     const email = uniqueEmail('expira');
     const { token } = await playQuiz();
-    await saveResultEmail(token, email, 'ip-teste');
+    await saveResultEmail(token, email);
     const expiredToken = generateToken();
     await db().recoveryToken.create({
       data: { tokenHash: hashToken(expiredToken), email, expiresAt: new Date(Date.now() - 1000) },
@@ -99,7 +100,7 @@ describe('recuperação de resultado', () => {
 
   it('valida o formato do e-mail', async () => {
     const { token } = await playQuiz();
-    await expect(saveResultEmail(token, 'nao-e-email', 'ip')).rejects.toThrow();
+    await expect(saveResultEmail(token, 'nao-e-email')).rejects.toThrow();
     await expect(requestRecovery('invalido@', 'ip')).rejects.toThrow();
   });
 
@@ -112,8 +113,39 @@ describe('recuperação de resultado', () => {
     expect(await deleteResult(token)).toBe(false);
   });
 
+  it('link de compartilhamento é somente leitura: vê o resultado, mas não troca e-mail, não exclui e não compartilha', async () => {
+    const owner = await playQuiz(CONFLICT_CHOICES);
+    const sharePath = await createShareLink(owner.token);
+    const viewerToken = sharePath.replace('/resultado/', '');
+
+    const view = await getResultView(viewerToken);
+    expect(view?.access).toBe('viewer');
+    expect(view?.primary?.categoryId).toBe('cat_conflitos');
+    expect(view?.hasEmail).toBe(false);
+    expect((await getResultView(owner.token))?.access).toBe('owner');
+
+    await expect(saveResultEmail(viewerToken, uniqueEmail('intruso'))).rejects.toMatchObject({ status: 404 });
+    await expect(createShareLink(viewerToken)).rejects.toMatchObject({ status: 404 });
+    expect(await deleteResult(viewerToken)).toBe(false);
+    expect(await getResultView(owner.token)).not.toBeNull();
+
+    const stored = await db().sessionAccessToken.findFirstOrThrow({ where: { tokenHash: hashToken(viewerToken) } });
+    expect(stored).toMatchObject({ scope: 'viewer', source: 'share' });
+  });
+
+  it('links de recuperação são de dono (permitem gerenciar o resultado)', async () => {
+    const email = uniqueEmail('dono');
+    const { token } = await playQuiz();
+    await saveResultEmail(token, email);
+    await requestRecovery(email, null);
+    const recoveryToken = linkIn((await lastEmailTo(email))?.body, '/recuperar/');
+    const [recovered] = (await consumeRecovery(recoveryToken!))!;
+    const recoveredToken = recovered!.resultPath.replace('/resultado/', '');
+    expect((await getResultView(recoveredToken))?.access).toBe('owner');
+  });
+
   it('resultado não pode receber e-mail se não estiver concluído', async () => {
     const { token } = await playQuiz({}, { stopAfter: 1 });
-    await expect(saveResultEmail(token, uniqueEmail('x'), 'ip')).rejects.toBeInstanceOf(HttpError);
+    await expect(saveResultEmail(token, uniqueEmail('x'))).rejects.toBeInstanceOf(HttpError);
   });
 });

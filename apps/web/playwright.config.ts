@@ -17,7 +17,9 @@ export const E2E_ENV = {
   PAYMENT_WEBHOOK_SECRET: 'segredo-de-webhook-somente-para-e2e-0123456789',
   PAYMENT_SIMULATOR_ENABLED: 'true',
   EMAIL_PROVIDER: 'outbox',
-  TRUST_PROXY: 'false',
+  TRUST_PROXY_HOPS: '0',
+  // Build de produção com gateway simulado: confirmação explícita exigida pela trava de segurança.
+  ALLOW_DEMO_PROVIDERS: 'true',
 };
 
 export default defineConfig({

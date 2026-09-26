@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { trackEvent } from '@/server/analytics';
 import { CONSENT_COOKIE, hasAnalyticsConsent, quizCookieName } from '@/server/cookies';
 import { HttpError, route } from '@/server/http';
-import { enforceRateLimit } from '@/server/security/rate-limit';
+import { MINUTE, enforceClientRateLimit, enforceRateLimit } from '@/server/security/rate-limit';
 import { assertSameOrigin, getClientIp, readJson } from '@/server/security/request';
 import { findSessionByToken } from '@/server/services/quiz-service';
 
@@ -15,7 +15,10 @@ const schema = z.object({ name: z.string().max(60), props: z.record(z.string(), 
  */
 export const POST = route(async (request) => {
   assertSameOrigin(request);
-  enforceRateLimit(`analytics:${getClientIp(request)}`, 120, 10 * 60 * 1000);
+  const session = await findSessionByToken(request.cookies.get(quizCookieName())?.value);
+  if (session) enforceRateLimit(`analytics:session:${session.id}`, 120, 10 * MINUTE);
+  enforceClientRateLimit('analytics', getClientIp(request), { perIp: 120, global: 20_000, windowMs: 10 * MINUTE });
+
   const { name, props } = await readJson(request, schema, 4 * 1024);
   if (!isClientEventName(name)) throw new HttpError(400, 'unknown_event', 'Evento não permitido.');
 
@@ -25,7 +28,6 @@ export const POST = route(async (request) => {
   const event = createEvent(name, props);
   if (!event) throw new HttpError(400, 'invalid_event', 'Propriedades inválidas.');
 
-  const session = await findSessionByToken(request.cookies.get(quizCookieName())?.value);
   await trackEvent(true, event.name, event.props as never, session?.id);
   return new Response(null, { status: 204 });
 });

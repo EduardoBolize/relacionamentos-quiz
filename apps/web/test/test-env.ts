@@ -7,5 +7,5 @@ export const TEST_ENV = {
   PAYMENT_WEBHOOK_SECRET: 'segredo-de-webhook-para-testes-0123456789',
   PAYMENT_SIMULATOR_ENABLED: 'true',
   EMAIL_PROVIDER: 'outbox',
-  TRUST_PROXY: 'false',
+  TRUST_PROXY_HOPS: '0',
 } as const;

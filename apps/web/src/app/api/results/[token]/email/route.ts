@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { json, route } from '@/server/http';
-import { assertSameOrigin, getClientIp, readJson } from '@/server/security/request';
+import { assertSameOrigin, readJson } from '@/server/security/request';
 import { saveResultEmail } from '@/server/services/result-service';
 
 const schema = z
@@ -15,6 +15,6 @@ export const POST = route<{ params: Promise<{ token: string }> }>(async (request
   assertSameOrigin(request);
   const { token } = await params;
   const { email } = await readJson(request, schema);
-  await saveResultEmail(token, email, getClientIp(request));
+  await saveResultEmail(token, email);
   return json({ sent: true });
 });

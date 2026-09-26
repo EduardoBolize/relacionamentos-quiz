@@ -183,8 +183,10 @@ model SessionAccessToken {
   sessionId  String
   session    QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   tokenHash  String      @unique
-  /// quiz | recovery
+  /// quiz | recovery | share
   source     String      @default("quiz")
+  /// owner = pode enviar por e-mail, compartilhar e excluir; viewer = link de compartilhamento, só leitura
+  scope      String      @default("owner")
   createdAt  DateTime    @default(now())
   lastUsedAt DateTime?
   revokedAt  DateTime?

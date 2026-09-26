@@ -36,6 +36,22 @@ export function adminCookieOptions(expires: Date) {
   };
 }
 
+interface CookieWriter {
+  cookies: { set: (name: string, value: string, options: Record<string, unknown>) => unknown };
+}
+
+/**
+ * Remove o cookie repetindo os atributos originais. Cookies `__Host-` só são aceitos (inclusive para
+ * remoção) com `Secure` e `Path=/` — o `cookies.delete()` padrão não os envia.
+ */
+export function clearQuizCookie(response: CookieWriter): void {
+  response.cookies.set(quizCookieName(), '', { ...quizCookieOptions(), maxAge: 0, expires: new Date(0) });
+}
+
+export function clearAdminCookie(response: CookieWriter): void {
+  response.cookies.set(adminCookieName(), '', { ...adminCookieOptions(new Date(0)), maxAge: 0 });
+}
+
 /** Consentimento para analytics comportamental (LGPD). */
 export function hasAnalyticsConsent(cookieValue: string | undefined): boolean {
   return cookieValue === 'analytics';

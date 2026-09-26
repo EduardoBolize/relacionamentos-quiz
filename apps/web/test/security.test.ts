@@ -39,7 +39,7 @@ describe('leitura segura de JSON', () => {
   });
 
   it('não confia em X-Forwarded-For sem TRUST_PROXY (evita burlar o limite de requisições)', () => {
-    expect(getClientIp(request({ 'x-forwarded-for': '1.2.3.4' }))).toBe('local');
+    expect(getClientIp(request({ 'x-forwarded-for': '1.2.3.4' }))).toBeNull();
   });
 });
 

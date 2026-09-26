@@ -35,8 +35,17 @@ export async function createQuizSession(): Promise<{ session: QuizSession; token
   return { session, token };
 }
 
-/** Localiza a sessão pelo token (cookie ou link). Tokens revogados ou malformados são ignorados. */
-export async function findSessionByToken(token: string | null | undefined): Promise<QuizSession | null> {
+export type AccessScope = 'owner' | 'viewer';
+
+/**
+ * Localiza a sessão pelo token (cookie ou link) e informa o escopo do acesso:
+ * - `owner`: quem fez o teste (cookie, link do resultado, link de recuperação);
+ * - `viewer`: link de compartilhamento — somente leitura.
+ * Tokens revogados ou malformados são ignorados.
+ */
+export async function findSessionAccess(
+  token: string | null | undefined,
+): Promise<{ session: QuizSession; scope: AccessScope } | null> {
   if (!isValidTokenFormat(token)) return null;
   const access = await db().sessionAccessToken.findUnique({
     where: { tokenHash: hashToken(token) },
@@ -46,7 +55,13 @@ export async function findSessionByToken(token: string | null | undefined): Prom
   if (!access.lastUsedAt || Date.now() - access.lastUsedAt.getTime() > 60_000) {
     await db().sessionAccessToken.update({ where: { id: access.id }, data: { lastUsedAt: new Date() } });
   }
-  return access.session;
+  return { session: access.session, scope: access.scope === 'viewer' ? 'viewer' : 'owner' };
+}
+
+/** Sessão acessível pelo token com permissão de DONO (responder, e-mail, compartilhar, excluir). */
+export async function findSessionByToken(token: string | null | undefined): Promise<QuizSession | null> {
+  const access = await findSessionAccess(token);
+  return access && access.scope === 'owner' ? access.session : null;
 }
 
 function toProgressDTO(progress: Progress): ProgressDTO {

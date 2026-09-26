@@ -3,7 +3,7 @@ import { trackEvent } from '@/server/analytics';
 import { CONSENT_COOKIE, hasAnalyticsConsent, quizCookieName, quizCookieOptions } from '@/server/cookies';
 import { getEngine } from '@/server/definition';
 import { HttpError, json, route } from '@/server/http';
-import { enforceRateLimit } from '@/server/security/rate-limit';
+import { MINUTE, enforceClientRateLimit } from '@/server/security/rate-limit';
 import { assertSameOrigin, getClientIp, readJson } from '@/server/security/request';
 import { buildQuizState, createQuizSession, findSessionByToken } from '@/server/services/quiz-service';
 
@@ -12,7 +12,7 @@ const startSchema = z.object({ source: z.string().trim().max(40).optional() }).s
 /** Inicia um novo quiz (sempre uma sessão nova) e grava o token em cookie HttpOnly. */
 export const POST = route(async (request) => {
   assertSameOrigin(request);
-  enforceRateLimit(`quiz-start:${getClientIp(request)}`, 30, 10 * 60 * 1000);
+  enforceClientRateLimit('quiz-start', getClientIp(request), { perIp: 30, global: 3000, windowMs: 10 * MINUTE });
   const { source } = await readJson(request, startSchema);
 
   const engine = await getEngine();

@@ -5,7 +5,11 @@ import type { Condition, EngineSettings, RuleEffect } from './types';
 /** Limite de aninhamento das condições (protege contra JSON excessivamente profundo). */
 export const MAX_CONDITION_DEPTH = 6;
 
-const idSchema = z.string().trim().min(1).max(64);
+/** Ids do banco (cuid) ou legíveis (`q_status`); recusa chaves especiais como `__proto__`. */
+const idSchema = z
+  .string()
+  .trim()
+  .regex(/^(?!__)[A-Za-z0-9_-]{1,64}$/, 'Identificador inválido.');
 
 export const conditionSchema: z.ZodType<Condition> = z.lazy(() =>
   z.union([

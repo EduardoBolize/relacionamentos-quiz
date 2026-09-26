@@ -6,9 +6,9 @@ import type { ResultModuleDTO, ResultViewDTO, ThemeDTO } from '@/lib/dto';
 import { db } from '../db';
 import { absoluteUrl, emailTemplates, sendEmailSafely } from '../email';
 import { HttpError } from '../http';
-import { enforceRateLimit } from '../security/rate-limit';
+import { HOUR, enforceClientRateLimit, enforceRateLimit } from '../security/rate-limit';
 import { generateToken, hashToken, isValidTokenFormat } from '../security/tokens';
-import { findSessionByToken } from './quiz-service';
+import { findSessionAccess, findSessionByToken } from './quiz-service';
 
 const RECOVERY_TTL_MS = 30 * 60 * 1000;
 
@@ -50,8 +50,9 @@ export function parseStoredResult(json: string | null): Pick<QuizResult, 'primar
  * nomes, explicações e preços vêm do cadastro atual (assim correções de texto feitas no admin aparecem).
  */
 export async function getResultView(token: string): Promise<ResultViewDTO | null> {
-  const session = await findSessionByToken(token);
-  if (!session || session.status !== 'completed') return null;
+  const access = await findSessionAccess(token);
+  if (!access || access.session.status !== 'completed') return null;
+  const { session, scope } = access;
   const result = parseStoredResult(session.resultJson);
   if (!result) return null;
 
@@ -105,22 +106,43 @@ export async function getResultView(token: string): Promise<ResultViewDTO | null
     scores: themes(result.scores),
     modules: recommended,
     flags: result.flags,
-    hasEmail: Boolean(session.email),
+    hasEmail: scope === 'owner' && Boolean(session.email),
+    access: scope,
   };
 }
 
-/** Salva o e-mail (com consentimento) e envia o link do resultado. */
-export async function saveResultEmail(token: string, rawEmail: string, ip: string): Promise<void> {
-  enforceRateLimit(`result-email:${ip}`, 10, 60 * 60 * 1000);
+/**
+ * Salva o e-mail (com consentimento) e envia o link do resultado.
+ * Somente o DONO pode fazer isso — um link compartilhado não consegue trocar o e-mail de recuperação.
+ */
+export async function saveResultEmail(token: string, rawEmail: string): Promise<void> {
   const session = await findSessionByToken(token);
   if (!session || session.status !== 'completed') throw new HttpError(404, 'not_found', 'Resultado não encontrado.');
+  enforceRateLimit(`result-email:session:${session.id}`, 5, HOUR);
+  enforceClientRateLimit('result-email', null, { global: 1000, windowMs: HOUR });
 
   const email = normalizeEmail(emailSchema.parse(rawEmail));
   await db().quizSession.update({ where: { id: session.id }, data: { email, emailConsentAt: new Date() } });
   await sendEmailSafely({ to: email, ...emailTemplates.resultLink(absoluteUrl(`/resultado/${token}`)) });
 }
 
-/** Direito de eliminação (LGPD): apaga respostas, resultado e tokens de acesso. */
+/**
+ * Cria um link de compartilhamento SOMENTE LEITURA (quem recebe vê o resultado, mas não pode
+ * excluí-lo, trocar o e-mail nem gerar outros links).
+ */
+export async function createShareLink(token: string): Promise<string> {
+  const session = await findSessionByToken(token);
+  if (!session || session.status !== 'completed') throw new HttpError(404, 'not_found', 'Resultado não encontrado.');
+  enforceRateLimit(`result-share:session:${session.id}`, 10, HOUR);
+
+  const shareToken = generateToken();
+  await db().sessionAccessToken.create({
+    data: { sessionId: session.id, tokenHash: hashToken(shareToken), source: 'share', scope: 'viewer' },
+  });
+  return `/resultado/${shareToken}`;
+}
+
+/** Direito de eliminação (LGPD): apaga respostas, resultado e tokens de acesso. Somente o dono. */
 export async function deleteResult(token: string): Promise<boolean> {
   const session = await findSessionByToken(token);
   if (!session) return false;
@@ -135,14 +157,14 @@ export async function deleteResult(token: string): Promise<boolean> {
  *    DEPOIS de responder (`after`), então o tempo de resposta não revela se o e-mail existe.
  * A resposta ao navegador é sempre a mesma, evitando a enumeração de quem fez o quiz.
  */
-export function prepareRecoveryRequest(rawEmail: string, ip: string): string {
+export function prepareRecoveryRequest(rawEmail: string, ip: string | null): string {
   const email = normalizeEmail(emailSchema.parse(rawEmail));
-  enforceRateLimit(`recover-ip:${ip}`, 10, 60 * 60 * 1000);
-  enforceRateLimit(`recover-email:${hashToken(email)}`, 3, 60 * 60 * 1000);
+  enforceRateLimit(`recover-email:${hashToken(email)}`, 3, HOUR);
+  enforceClientRateLimit('recover', ip, { perIp: 10, global: 300, windowMs: HOUR });
   return email;
 }
 
-export async function requestRecovery(rawEmail: string, ip: string): Promise<void> {
+export async function requestRecovery(rawEmail: string, ip: string | null): Promise<void> {
   await processRecoveryRequest(prepareRecoveryRequest(rawEmail, ip));
 }
 

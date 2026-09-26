@@ -43,13 +43,14 @@ export async function audit(adminId: string | null, action: string, entity: stri
 export async function loginAdmin(input: {
   email: string;
   password: string;
-  ip: string;
+  /** IP confiável do cliente, ou `null` quando desconhecido (sem limite por IP, nunca um limite global). */
+  ip: string | null;
   userAgent: string | null;
 }): Promise<LoginResult> {
   const email = normalizeEmail(input.email);
-  const byIp = checkRateLimit(`admin-login-ip:${input.ip}`, 20, 15 * 60 * 1000);
+  const byIp = input.ip ? checkRateLimit(`admin-login-ip:${input.ip}`, 20, 15 * 60 * 1000) : null;
   const byEmail = checkRateLimit(`admin-login-email:${hashToken(email)}`, 10, 15 * 60 * 1000);
-  if (!byIp.allowed || !byEmail.allowed) return { ok: false, reason: 'throttled' };
+  if ((byIp && !byIp.allowed) || !byEmail.allowed) return { ok: false, reason: 'throttled' };
 
   const admin = await db().adminUser.findUnique({ where: { email } });
   if (!admin) {
@@ -87,7 +88,7 @@ export async function loginAdmin(input: {
         tokenHash: hashToken(token),
         adminId: admin.id,
         expiresAt,
-        ip: input.ip.slice(0, 64),
+        ip: input.ip?.slice(0, 64) ?? null,
         userAgent: input.userAgent?.slice(0, 300) ?? null,
       },
     });

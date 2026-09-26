@@ -15,7 +15,7 @@ import { db } from '../db';
 import { absoluteUrl, emailTemplates, sendEmailSafely } from '../email';
 import { HttpError } from '../http';
 import { getPaymentGateway, isSimulatorEnabled } from '../payments';
-import { enforceRateLimit } from '../security/rate-limit';
+import { MINUTE, enforceClientRateLimit, enforceRateLimit } from '../security/rate-limit';
 import { generateToken, hashToken, isValidTokenFormat } from '../security/tokens';
 import { getPaymentSettings, getPricingSettings } from '../settings';
 import { findSessionByToken } from './quiz-service';
@@ -96,13 +96,15 @@ export async function buildQuote(moduleSlugs: string[]): Promise<{ quote: QuoteD
 }
 
 export interface CreateOrderContext {
-  ip: string;
+  /** IP confiável do cliente, ou `null` quando desconhecido. */
+  ip: string | null;
   consent: boolean;
   sessionToken?: string;
 }
 
 export async function createOrder(input: OrderInput, context: CreateOrderContext): Promise<{ orderPath: string }> {
-  enforceRateLimit(`order:${context.ip}`, 10, 10 * 60 * 1000);
+  enforceRateLimit(`order:email:${hashToken(normalizeEmail(input.customer.email))}`, 10, 10 * MINUTE);
+  enforceClientRateLimit('order', context.ip, { perIp: 10, global: 1000, windowMs: 10 * MINUTE });
 
   const { quote, modules } = await buildQuote(input.moduleSlugs);
   if (quote.totalCents <= 0) throw new HttpError(422, 'invalid_total', 'Valor do pedido inválido.');

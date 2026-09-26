@@ -40,10 +40,10 @@ botões grandes, atalhos de teclado, fundo escuro) — com identidade visual pr�
 | **Adaptativo** | Perguntas e etapas com condições (por resposta anterior ou pela pontuação parcial de um tema). |
 | **Pergunta de valor** | Ao final de cada etapa, a seção do livro relacionada aparece com preço e a pessoa responde se **concorda com o valor** (sem cobrança). A resposta pré-seleciona o carrinho e alimenta as estatísticas de preço. |
 | **QuizEngine** | Motor puro em TypeScript: pontuação normalizada (0–100), regras condicionais, categoria principal, secundárias e módulos recomendados. |
-| **Resultado** | Explicações cuidadosas (não diagnósticas), pontuação de todos os temas, prévia dos módulos, CTA, envio por e-mail, link para compartilhar, exclusão dos dados (LGPD). |
+| **Resultado** | Explicações cuidadosas (não diagnósticas), pontuação de todos os temas, prévia dos módulos, CTA, envio por e-mail, link de compartilhamento **somente leitura**, “remover deste navegador”, **saída rápida** quando há sinal de risco e exclusão dos dados (LGPD). |
 | **Checkout** | Pix (QR Code + copia e cola + validade), boleto (linha digitável) e cartão (tokenizado no navegador, parcelamento), desconto de combo, webhooks assinados. |
 | **Painel admin** | Categorias, etapas, perguntas com **grade de pesos**, construtor visual de **regras/condições**, módulos (markdown com pré-visualização), preços com taxa de aceitação, configurações, pedidos, e-mails simulados e auditoria — **sem mexer no código**. |
-| **Qualidade** | 176 testes unitários/integração + 8 E2E (celular e desktop), ESLint, TypeScript estrito, build de produção sem avisos. |
+| **Qualidade** | 191 testes unitários/integração + 8 E2E (celular e desktop), ESLint, TypeScript estrito, build de produção sem avisos, `npm audit` sem vulnerabilidades. |
 | **Segurança** | CSP com nonce, cookies HttpOnly/`__Host-`, proteção CSRF, rate limiting, tokens com hash, scrypt, auditoria, validação com zod em todas as entradas. |
 | **Acessibilidade** | Mobile-first, HTML semântico (radios/checkboxes nativos), foco gerenciado, `aria-live`, barras de progresso acessíveis, contraste AA, `prefers-reduced-motion`. |
 
@@ -314,7 +314,11 @@ Nada nas telas, nos serviços de pedido ou no QuizEngine precisa mudar.
 
 - **Mesmo navegador:** a sessão fica em um cookie `HttpOnly`; o quiz retoma de onde parou e **“Meu resultado”** abre o
   último resultado.
-- **Link:** cada resultado tem um link secreto (`/resultado/<token de 256 bits>`); no banco fica só o hash.
+- **Link pessoal:** cada resultado tem um link secreto (`/resultado/<token de 256 bits>`); no banco fica só o hash.
+  Ele permite gerenciar o resultado (e-mail, exclusão), por isso não deve ser compartilhado.
+- **Compartilhar:** “Compartilhar (somente leitura)” gera outro link, que só permite **ver** o resultado.
+- **Aparelho compartilhado:** “Remover deste navegador” apaga o acesso local; quando as respostas indicam medo ou
+  controle, o botão **“Sair rápido”** remove o acesso e troca a página por um site neutro.
 - **E-mail (opcional, com consentimento):** a pessoa pode receber o link e, depois, pedir em `/recuperar` um
   **link mágico** (válido por 30 min, uso único, confirmado por botão para que leitores de e-mail não o consumam).
   A resposta é sempre a mesma, exista ou não o e-mail (sem enumeração).
@@ -337,7 +341,7 @@ Nada nas telas, nos serviços de pedido ou no QuizEngine precisa mudar.
 ## Testes
 
 ```bash
-npm test            # 176 testes: motor, pagamentos, analytics, conteúdo e integração do app
+npm test            # 191 testes: motor, pagamentos, analytics, conteúdo e integração do app
 npm run test:e2e    # 8 cenários E2E (celular e desktop) contra o build de produção
 ```
 
@@ -347,7 +351,7 @@ npm run test:e2e    # 8 cenários E2E (celular e desktop) contra o build de prod
 | `packages/payments/test` (35) | Preço/desconto/parcelas, cartão (Luhn, bandeira, validade, tokenização), CPF, Pix (EMV/CRC16), boleto (FEBRABAN), assinatura de webhook. |
 | `packages/analytics/test` (8) | Catálogo estrito, consentimento, tolerância a falhas, funil. |
 | `packages/db/test` (8) | Conteúdo de demonstração válido e com os resultados esperados. |
-| `apps/web/test` (60) | **Fluxo do quiz** via serviços reais e banco de teste, **recuperação de resultado** (link, e-mail, link mágico, expiração, uso único, limite), checkout, webhooks (idempotência, assinatura, transições), admin (login, bloqueio, sessões, CSRF, CRUD) e segurança. |
+| `apps/web/test` (75) | **Fluxo do quiz** via serviços reais e banco de teste, **recuperação de resultado** (link, e-mail, link mágico, expiração, uso único, limite), checkout, webhooks (idempotência, assinatura, transições), admin (login, bloqueio, sessões, CSRF, CRUD), segurança e as regressões da revisão de segurança. |
 | `apps/web/e2e` (8) | Jornada completa (landing → quiz → resultado → Pix → conteúdo), cartão recusado, painel (preço sem código) e cabeçalhos de segurança. |
 
 Os testes de integração usam `data/test.db` e os E2E `data/e2e.db` — o banco de desenvolvimento nunca é tocado.
@@ -368,8 +372,14 @@ Resumo dos controles (detalhes, modelo de ameaças e recomendações para produ�
 - **Tokens** de 256 bits; no banco só o **hash SHA-256**. Senhas com **scrypt** (parâmetros OWASP), bloqueio após 5
   falhas, limites por IP e por e-mail, respostas genéricas, sessões com expiração e inatividade, **auditoria**.
 - **Preço sempre calculado no servidor**; webhooks com **HMAC + janela de tempo + idempotência**; cartão tokenizado.
-- Entradas validadas com **zod** (esquemas estritos, limites de tamanho); markdown sem HTML (sem XSS); Prisma
-  parametrizado (sem SQL injection).
+- Entradas validadas com **zod** (esquemas estritos, limites de tamanho lidos em streaming); markdown sem HTML (sem
+  XSS); Prisma parametrizado (sem SQL injection).
+- **Rate limiting** que não confia em `X-Forwarded-For` forjável (`TRUST_PROXY_HOPS`) e nunca vira um limite global
+  apertado; links de compartilhamento **somente leitura**; produção **não inicia** com provedores de demonstração
+  (`ALLOW_DEMO_PROVIDERS`); `npm audit` sem vulnerabilidades.
+
+A **revisão de segurança** completa (9 problemas encontrados e corrigidos, pontos verificados e riscos aceitos) está
+em [`docs/SEGURANCA.md`](docs/SEGURANCA.md#revisão-de-segurança-setembro2026).
 
 ---
 
@@ -386,7 +396,7 @@ Resumo dos controles (detalhes, modelo de ameaças e recomendações para produ�
    migração é direta.
 5. **Contas de leitor (opcional):** hoje o acesso ao conteúdo é por link secreto enviado por e-mail. Para biblioteca
    pessoal, adicione login (ex.: link mágico por e-mail) e associe pedidos ao usuário.
-6. **Infra:** execute em HTTPS atrás de proxy confiável (`TRUST_PROXY=true`), use Redis para o rate limiting com várias
+6. **Infra:** execute em HTTPS atrás de proxy confiável (`TRUST_PROXY_HOPS`), use Redis para o rate limiting com várias
    instâncias, agende `npm run db:cleanup`, configure backups e monitoramento de erros.
 7. **Jurídico:** termos de compra, política de privacidade (controlador, encarregado/DPO, bases legais), direito de
    arrependimento (CDC, art. 49) e nota fiscal.

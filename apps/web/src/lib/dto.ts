@@ -85,6 +85,8 @@ export interface ResultViewDTO {
   modules: ResultModuleDTO[];
   flags: string[];
   hasEmail: boolean;
+  /** `owner`: quem fez o teste; `viewer`: link de compartilhamento (somente leitura). */
+  access: 'owner' | 'viewer';
 }
 
 export interface CatalogModuleDTO {

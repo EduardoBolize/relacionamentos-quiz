@@ -4,12 +4,18 @@ import { notFound } from 'next/navigation';
 import { SAFETY_FLAG } from '@relacionamentos/quiz-engine';
 import { SafeMarkdown } from '@/components/SafeMarkdown';
 import { PreviewDetails } from '@/components/result/PreviewDetails';
-import { CopyLinkButton, DeleteResultButton, EmailResultForm } from '@/components/result/ResultActions';
+import {
+  DeleteResultButton,
+  EmailResultForm,
+  ForgetBrowserButton,
+  QuickExitButton,
+  ShareLinkButton,
+} from '@/components/result/ResultActions';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { SiteHeader } from '@/components/site/SiteHeader';
 import { SupportResources } from '@/components/site/SupportResources';
 import { ButtonLink } from '@/components/ui/Button';
-import { Badge, ProgressBar } from '@/components/ui/Feedback';
+import { Alert, Badge, ProgressBar } from '@/components/ui/Feedback';
 import { Icon } from '@/components/ui/Icon';
 import type { RecommendationReasonDTO, ThemeDTO } from '@/lib/dto';
 import { formatBRL, formatDateTime } from '@/lib/format';
@@ -38,14 +44,23 @@ export default async function ResultPage({ params }: { params: Promise<{ token: 
   if (!result) notFound();
 
   const safety = result.flags.includes(SAFETY_FLAG);
+  const isOwner = result.access === 'owner';
   const preselected = result.modules.filter((module) => module.preselected).map((module) => module.slug);
   const allSlugs = result.modules.map((module) => module.slug);
   const checkoutSlugs = preselected.length ? preselected : allSlugs.slice(0, 1);
 
   return (
     <>
+      {safety ? <QuickExitButton /> : null}
       <SiteHeader />
       <main id="conteudo" className="bg-slate-50">
+        {!isOwner ? (
+          <div className="mx-auto max-w-4xl px-4 pt-6">
+            <Alert tone="info" title="Resultado compartilhado">
+              Você está vendo um resultado que alguém compartilhou com você (somente leitura).
+            </Alert>
+          </div>
+        ) : null}
         <section className="bg-night-900 text-white">
           <div className="mx-auto max-w-4xl px-4 py-12 sm:py-16">
             <p className="text-sm text-night-300">Resultado gerado em {formatDateTime(result.completedAt)}</p>
@@ -182,26 +197,42 @@ export default async function ResultPage({ params }: { params: Promise<{ token: 
 
           {!safety ? <SupportResources /> : null}
 
-          <section aria-labelledby="guardar" className="grid gap-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6 md:grid-cols-2">
-            <div>
-              <h2 id="guardar" className="text-lg font-bold text-night-900">Guarde seu resultado</h2>
-              <p className="mt-1 mb-4 text-sm text-slate-600">
-                Este link é a chave de acesso ao seu resultado — guarde-o e compartilhe só com quem você confia.
-              </p>
-              <EmailResultForm token={token} hasEmail={result.hasEmail} />
-            </div>
-            <div className="flex flex-col gap-4 md:border-l md:border-slate-200 md:pl-6">
-              <h2 className="text-lg font-bold text-night-900">Outras opções</h2>
-              <CopyLinkButton />
-              <ButtonLink href="/quiz?novo=1" variant="secondary" size="sm">
-                Refazer o teste
-              </ButtonLink>
-              <div className="mt-auto border-t border-slate-200 pt-4">
-                <p className="mb-2 text-xs text-slate-500">Seus dados, sua escolha (LGPD): exclua respostas e resultado quando quiser.</p>
-                <DeleteResultButton token={token} />
+          {isOwner ? (
+            <section aria-labelledby="guardar" className="grid gap-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6 md:grid-cols-2">
+              <div>
+                <h2 id="guardar" className="text-lg font-bold text-night-900">Guarde seu resultado</h2>
+                <p className="mt-1 mb-4 text-sm text-slate-600">
+                  O endereço desta página é o seu <strong>link pessoal</strong>: ele permite excluir o resultado e trocar o
+                  e-mail, então não o compartilhe. Para mostrar a alguém, use “Compartilhar (somente leitura)”.
+                </p>
+                <EmailResultForm token={token} hasEmail={result.hasEmail} />
               </div>
-            </div>
-          </section>
+              <div className="flex flex-col gap-4 md:border-l md:border-slate-200 md:pl-6">
+                <h2 className="text-lg font-bold text-night-900">Outras opções</h2>
+                <ShareLinkButton token={token} />
+                <ButtonLink href="/quiz?novo=1" variant="secondary" size="sm">
+                  Refazer o teste
+                </ButtonLink>
+                <div className="mt-auto space-y-3 border-t border-slate-200 pt-4">
+                  <p className="text-xs text-slate-500">
+                    Seus dados, sua escolha (LGPD). Em aparelho compartilhado, remova o acesso deste navegador.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <ForgetBrowserButton />
+                    <DeleteResultButton token={token} />
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <p className="text-center text-sm text-slate-600">
+              Quer descobrir os temas do seu relacionamento?{' '}
+              <Link href="/quiz?novo=1" className="font-medium text-brand-700 underline">
+                Faça o teste gratuito
+              </Link>
+              .
+            </p>
+          )}
         </div>
       </main>
       <SiteFooter />
