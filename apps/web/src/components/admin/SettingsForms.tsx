@@ -3,8 +3,9 @@
 import { formatBRL, parseBRLToCents } from '@relacionamentos/payments/client';
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/Button';
-import { TextField } from '@/components/ui/Field';
+import { TextAreaField, TextField } from '@/components/ui/Field';
 import { apiFetch } from '@/lib/api-client';
+import { isSafeExternalUrl } from '@/lib/links';
 import { FormFeedback } from './AdminUi';
 import { useAdminAction } from './useAdminAction';
 
@@ -150,6 +151,128 @@ export function PricingSettingsForm({ pricing }: { pricing: PricingSettingsValue
       <Button type="submit" loading={busy}>
         Salvar regras de preço
       </Button>
+    </form>
+  );
+}
+
+export interface CourseSettingsValue {
+  guaranteeDays: number;
+  fullCourseCheckoutUrl: string | null;
+}
+
+/** Garantia anunciada e link de checkout externo do curso completo (ex.: Kiwify). */
+export function CourseSettingsForm({ course }: { course: CourseSettingsValue }) {
+  const [guaranteeDays, setGuaranteeDays] = useState(course.guaranteeDays);
+  const [checkoutUrl, setCheckoutUrl] = useState(course.fullCourseCheckoutUrl ?? '');
+  const { run, busy, error, message } = useAdminAction();
+  const urlError = checkoutUrl.trim() && !isSafeExternalUrl(checkoutUrl.trim()) ? 'Use um endereço completo começando com https://' : null;
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    void run(
+      () =>
+        apiFetch('/api/admin/settings', {
+          method: 'PUT',
+          body: { course: { guaranteeDays, fullCourseCheckoutUrl: checkoutUrl.trim() || null } },
+        }),
+      { success: 'Oferta do curso salva.' },
+    );
+  };
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-[200px_1fr]">
+        <TextField
+          label="Garantia (dias)"
+          hint="Aparece nas respostas às dúvidas como {garantia_dias}. 0 esconde a garantia."
+          type="number"
+          min={0}
+          max={90}
+          value={guaranteeDays}
+          onChange={(e) => setGuaranteeDays(Number(e.target.value))}
+        />
+        <TextField
+          label="Checkout externo do curso completo (opcional)"
+          hint="Ex.: o link de pagamento do curso completo na Kiwify. Vazio = checkout do site com todos os módulos."
+          placeholder="https://pay.kiwify.com.br/..."
+          inputMode="url"
+          value={checkoutUrl}
+          onChange={(e) => setCheckoutUrl(e.target.value)}
+          error={urlError}
+        />
+      </div>
+      <FormFeedback error={error} message={message} />
+      <Button type="submit" loading={busy}>
+        Salvar oferta
+      </Button>
+    </form>
+  );
+}
+
+export interface ObjectionValue {
+  flag: string;
+  title: string;
+  answer: string;
+}
+
+/**
+ * Respostas às dúvidas (objeções). Cada uma aparece no resultado quando uma regra do quiz adiciona o
+ * sinalizador correspondente, e todas aparecem na seção de dúvidas da página inicial.
+ */
+export function ObjectionsForm({ objections }: { objections: ObjectionValue[] }) {
+  const [items, setItems] = useState(objections);
+  const { run, busy, error, message } = useAdminAction();
+  const update = (index: number, patch: Partial<ObjectionValue>) =>
+    setItems((current) => current.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    void run(() => apiFetch('/api/admin/settings', { method: 'PUT', body: { objections: items } }), {
+      success: 'Respostas às dúvidas salvas.',
+    });
+  };
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <p className="text-sm text-slate-600">
+        Marcadores trocados pelos valores atuais: <code>{'{preco_modulo}'}</code>, <code>{'{preco_curso}'}</code>,{' '}
+        <code>{'{parcelas}'}</code>, <code>{'{modulos}'}</code> e <code>{'{garantia_dias}'}</code>. Para exibir uma resposta no
+        resultado, crie uma regra (Admin → Regras) com o efeito “Adicionar sinalizador” usando o mesmo sinalizador.
+      </p>
+      <ol className="space-y-4">
+        {items.map((item, index) => (
+          <li key={index} className="grid gap-3 rounded-xl border border-slate-200 p-4 md:grid-cols-[220px_1fr]">
+            <TextField label="Sinalizador" hint="Ex.: objecao_preco" value={item.flag} onChange={(e) => update(index, { flag: e.target.value })} required />
+            <TextField label="Dúvida (título)" value={item.title} onChange={(e) => update(index, { title: e.target.value })} required />
+            <TextAreaField
+              className="md:col-span-2"
+              label="Resposta"
+              rows={3}
+              value={item.answer}
+              onChange={(e) => update(index, { answer: e.target.value })}
+              required
+            />
+            <div className="md:col-span-2">
+              <button
+                type="button"
+                className="text-sm font-medium text-red-700 hover:underline"
+                onClick={() => setItems((current) => current.filter((_, i) => i !== index))}
+              >
+                Remover esta resposta
+              </button>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-wrap gap-3">
+        <Button type="button" variant="secondary" onClick={() => setItems((current) => [...current, { flag: '', title: '', answer: '' }])}>
+          + Nova resposta
+        </Button>
+        <Button type="submit" loading={busy}>
+          Salvar respostas
+        </Button>
+      </div>
+      <FormFeedback error={error} message={message} />
     </form>
   );
 }

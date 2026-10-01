@@ -3,16 +3,16 @@ import { Inter, Poppins } from 'next/font/google';
 import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
 import { ConsentBanner } from '@/components/site/ConsentBanner';
+import { BRAND } from '@/lib/brand';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const poppins = Poppins({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-poppins', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: { default: 'Entre Nós — análise do seu relacionamento', template: '%s · Entre Nós' },
-  description:
-    'Quiz gratuito que aponta, com cuidado, os temas que mais pesam no seu relacionamento e indica por onde começar. Não é diagnóstico.',
-  applicationName: 'Entre Nós',
+  title: { default: `${BRAND.name} — descubra o seu módulo ideal`, template: `%s · ${BRAND.name}` },
+  description: BRAND.description,
+  applicationName: BRAND.name,
 };
 
 export const viewport: Viewport = {

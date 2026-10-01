@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { QuizRunner } from '@/components/quiz/QuizRunner';
 
 export const metadata: Metadata = {
-  title: 'Teste',
+  title: 'Quiz',
   robots: { index: false },
 };
 

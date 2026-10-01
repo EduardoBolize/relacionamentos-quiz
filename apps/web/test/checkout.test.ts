@@ -19,7 +19,7 @@ const cardToken = (outcome: 'approved' | 'declined' | 'insufficient_funds' | 'no
 
 function orderInput(overrides: Partial<OrderInput> = {}): OrderInput {
   return orderInputSchema.parse({
-    moduleSlugs: ['comunicacao-que-aproxima'],
+    moduleSlugs: ['conversas-que-aproximam'],
     customer: { name: 'Pessoa de Teste', email: uniqueEmail('compra') },
     method: 'pix',
     acceptTerms: true,
@@ -31,15 +31,34 @@ const context = { ip: 'ip-checkout', consent: false };
 const tokenFrom = (orderPath: string) => orderPath.replace('/pedido/', '');
 
 describe('checkout — preço calculado no servidor', () => {
-  it('usa os preços do banco e aplica o desconto de combo', async () => {
-    const { quote } = await buildQuote(['comunicacao-que-aproxima', 'dinheiro-a-dois']);
-    expect(quote).toMatchObject({ subtotalCents: 4980, discountPercent: 15, discountCents: 747, totalCents: 4233 });
-    expect(quote.installmentOptions.map((o) => o.count)).toEqual([1, 2, 3]);
+  it('usa os preços do banco: R$ 15 por módulo e R$ 120 no curso completo, em até 6x', async () => {
+    const { quote } = await buildQuote(['conversas-que-aproximam', 'romance-e-surpresas']);
+    expect(quote).toMatchObject({ subtotalCents: 3000, discountPercent: 0, discountCents: 0, totalCents: 3000 });
+    expect(quote.installmentOptions.map((o) => o.count)).toEqual([1, 2, 3]); // parcela mínima de R$ 10
+
+    const slugs = (await db().bookModule.findMany({ where: { active: true }, select: { slug: true } })).map((m) => m.slug);
+    const { quote: full } = await buildQuote(slugs);
+    expect(full).toMatchObject({ subtotalCents: 12_000, totalCents: 12_000 });
+    expect(full.installmentOptions.at(-1)).toEqual({ count: 6, amountCents: 2000 });
+  });
+
+  it('aplica o desconto de combo quando ele é ativado no admin', async () => {
+    const original = await db().setting.findUniqueOrThrow({ where: { key: 'pricing' } });
+    await db().setting.update({
+      where: { key: 'pricing' },
+      data: { value: JSON.stringify({ ...JSON.parse(original.value), comboDiscountPercent: 15 }) },
+    });
+    try {
+      const { quote } = await buildQuote(['conversas-que-aproximam', 'romance-e-surpresas']);
+      expect(quote).toMatchObject({ subtotalCents: 3000, discountPercent: 15, discountCents: 450, totalCents: 2550 });
+    } finally {
+      await db().setting.update({ where: { key: 'pricing' }, data: { value: original.value } });
+    }
   });
 
   it('não aceita preço, total ou campos extras vindos do navegador', () => {
     const parsed = orderInputSchema.safeParse({
-      moduleSlugs: ['comunicacao-que-aproxima'],
+      moduleSlugs: ['conversas-que-aproximam'],
       customer: { name: 'Pessoa', email: 'a@b.com' },
       method: 'pix',
       acceptTerms: true,
@@ -59,11 +78,11 @@ describe('checkout — preço calculado no servidor', () => {
 
   it('rejeita módulos inexistentes ou inativos', async () => {
     await expect(buildQuote(['modulo-que-nao-existe'])).rejects.toMatchObject({ status: 422 });
-    await db().bookModule.update({ where: { id: 'mod_limites' }, data: { active: false } });
+    await db().bookModule.update({ where: { id: 'mod_compromisso' }, data: { active: false } });
     try {
-      await expect(buildQuote(['limites-saudaveis'])).rejects.toMatchObject({ status: 422 });
+      await expect(buildQuote(['amor-que-dura'])).rejects.toMatchObject({ status: 422 });
     } finally {
-      await db().bookModule.update({ where: { id: 'mod_limites' }, data: { active: true } });
+      await db().bookModule.update({ where: { id: 'mod_compromisso' }, data: { active: true } });
     }
   });
 });
@@ -72,7 +91,7 @@ describe('checkout — métodos de pagamento', () => {
   it('Pix: pedido pendente com QR Code, código copia e cola e validade', async () => {
     const { orderPath } = await createOrder(orderInput(), context);
     const view = await getOrderView(tokenFrom(orderPath));
-    expect(view).toMatchObject({ status: 'pending', method: 'pix', totalCents: 2990 });
+    expect(view).toMatchObject({ status: 'pending', method: 'pix', totalCents: 1500 });
     expect(view?.pix?.qrCodeDataUrl).toMatch(/^data:image\/png;base64,/);
     expect(view?.pix?.copyPasteCode).toContain('br.com.exemplo.simulacao');
     expect(view?.simulatorEnabled).toBe(true);
@@ -94,7 +113,13 @@ describe('checkout — métodos de pagamento', () => {
   it('cartão aprovado: pago na hora, com parcelas, sem número do cartão salvo', async () => {
     const email = uniqueEmail('cartao');
     const { orderPath } = await createOrder(
-      orderInput({ method: 'card', cardToken: cardToken('approved'), installments: 3, customer: { name: 'Pessoa Cartão', email } }),
+      orderInput({
+        moduleSlugs: ['conversas-que-aproximam', 'romance-e-surpresas'],
+        method: 'card',
+        cardToken: cardToken('approved'),
+        installments: 3,
+        customer: { name: 'Pessoa Cartão', email },
+      }),
       context,
     );
     const view = await getOrderView(tokenFrom(orderPath));
@@ -126,26 +151,31 @@ describe('checkout — métodos de pagamento', () => {
 });
 
 describe('checkout — acesso ao conteúdo', () => {
-  it('conteúdo completo só para pedido pago e apenas dos módulos comprados', async () => {
+  it('aulas e texto completo só para pedido pago e apenas dos módulos comprados', async () => {
     const pending = await createOrder(orderInput(), context);
-    expect(await getPurchasedModule(tokenFrom(pending.orderPath), 'comunicacao-que-aproxima')).toBeNull();
+    expect(await getPurchasedModule(tokenFrom(pending.orderPath), 'conversas-que-aproximam')).toBeNull();
 
     const paid = await createOrder(orderInput({ method: 'card', cardToken: cardToken('approved') }), context);
-    const content = await getPurchasedModule(tokenFrom(paid.orderPath), 'comunicacao-que-aproxima');
-    expect(content?.content).toContain('roteiro de 4 passos');
-    expect(await getPurchasedModule(tokenFrom(paid.orderPath), 'dinheiro-a-dois')).toBeNull();
-    expect(await getPurchasedModule('token-invalido', 'comunicacao-que-aproxima')).toBeNull();
+    const content = await getPurchasedModule(tokenFrom(paid.orderPath), 'conversas-que-aproximam');
+    expect(content?.content).toContain('Banco de perguntas leves');
+    expect(content?.videos.map((video) => video.title)).toEqual([
+      'Assunto que não acaba',
+      'Ouvir para entender, não para vencer',
+      'Falar de sentimentos sem parecer chata',
+    ]);
+    expect(await getPurchasedModule(tokenFrom(paid.orderPath), 'romance-e-surpresas')).toBeNull();
+    expect(await getPurchasedModule('token-invalido', 'conversas-que-aproximam')).toBeNull();
   });
 
   it('pedidos guardam uma cópia do preço: mudar o preço depois não altera o pedido', async () => {
     const { orderPath } = await createOrder(orderInput(), context);
-    await db().bookModule.update({ where: { id: 'mod_comunicacao' }, data: { priceCents: 9990 } });
+    await db().bookModule.update({ where: { id: 'mod_conversas' }, data: { priceCents: 9990 } });
     try {
       const view = await getOrderView(tokenFrom(orderPath));
-      expect(view?.totalCents).toBe(2990);
-      expect(view?.items[0]?.priceCents).toBe(2990);
+      expect(view?.totalCents).toBe(1500);
+      expect(view?.items[0]?.priceCents).toBe(1500);
     } finally {
-      await db().bookModule.update({ where: { id: 'mod_comunicacao' }, data: { priceCents: 2990 } });
+      await db().bookModule.update({ where: { id: 'mod_conversas' }, data: { priceCents: 1500 } });
     }
   });
 });

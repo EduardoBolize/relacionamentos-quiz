@@ -4,7 +4,7 @@ import { AdminShell } from '@/components/admin/AdminShell';
 import { requireAdminPage } from '@/server/auth/admin-auth';
 
 export const metadata: Metadata = {
-  title: { default: 'Painel', template: '%s · Painel Entre Nós' },
+  title: { default: 'Painel', template: '%s · Painel Fórmula do Amor' },
   robots: { index: false, follow: false },
 };
 

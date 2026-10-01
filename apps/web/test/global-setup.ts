@@ -2,12 +2,12 @@ import { execFileSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import path from 'node:path';
 import { createPrismaClient, findRepoRoot, resolveDatabaseUrl } from '@relacionamentos/db';
-import { seedDemoContent } from '@relacionamentos/db/seed';
+import { seedCourseContent } from '@relacionamentos/db/seed';
 import { TEST_ENV } from './test-env';
 
 /**
  * Cria um banco SQLite novo só para os testes (data/test.db), aplica as migrações e grava o
- * conteúdo de demonstração. O banco de desenvolvimento nunca é tocado.
+ * conteúdo do curso. O banco de desenvolvimento nunca é tocado.
  */
 export default async function setup() {
   Object.assign(process.env, TEST_ENV);
@@ -25,6 +25,6 @@ export default async function setup() {
   });
 
   const prisma = createPrismaClient(url);
-  await seedDemoContent(prisma, { force: true, log: () => undefined });
+  await seedCourseContent(prisma, { force: true, log: () => undefined });
   await prisma.$disconnect();
 }

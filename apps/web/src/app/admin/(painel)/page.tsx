@@ -36,7 +36,7 @@ export default async function AdminDashboardPage() {
         <Kpi
           label="Pedidos pagos"
           value={`${data.kpis.paidOrders} de ${data.kpis.orders}`}
-          hint={`Quem concluiu o teste e comprou: ${pct(data.kpis.conversionRate)}`}
+          hint={`Quem concluiu o quiz e comprou: ${pct(data.kpis.conversionRate)}`}
         />
         <Kpi
           label="Receita (simulada)"

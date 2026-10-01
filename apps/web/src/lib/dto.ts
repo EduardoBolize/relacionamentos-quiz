@@ -75,6 +75,10 @@ export interface ResultModuleDTO {
   categoryName: string | null;
   priceAgreement: 'agree' | 'maybe' | 'disagree' | null;
   preselected: boolean;
+  videoCount: number;
+  /** Destino do botão de compra (checkout do site ou externo, ex.: Kiwify). */
+  buyHref: string;
+  buyExternal: boolean;
 }
 
 export interface ResultViewDTO {

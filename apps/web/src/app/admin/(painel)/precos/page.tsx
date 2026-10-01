@@ -14,7 +14,7 @@ export default async function PricesPage() {
     <>
       <PageHeader
         title="Preços"
-        description="Valor de cada seção do livro, ao lado de quantas pessoas concordaram com ele nas perguntas de fim de etapa. O checkout sempre recalcula o total no servidor com estes valores."
+        description="Valor de cada módulo do curso, ao lado de quantas pessoas concordaram com ele nas perguntas de fim de etapa. O checkout sempre recalcula o total no servidor com estes valores."
       />
       <div className="space-y-6">
         <Card>

@@ -1,6 +1,6 @@
 import { createPrismaClient } from '../src/client';
 import { loadRootEnv } from '../src/env';
-import { ensureAdminFromEnv, seedDemoContent } from './seed-lib';
+import { ensureAdminFromEnv, seedCourseContent } from './seed-lib';
 
 loadRootEnv();
 
@@ -11,7 +11,7 @@ try {
   // WAL melhora a concorrência entre o servidor e scripts (a configuração fica gravada no arquivo).
   await prisma.$queryRawUnsafe('PRAGMA journal_mode = WAL;');
   console.log('Semeando banco de dados…');
-  await seedDemoContent(prisma, { force });
+  await seedCourseContent(prisma, { force });
   await ensureAdminFromEnv(prisma);
   console.log('Pronto.');
 } catch (error) {

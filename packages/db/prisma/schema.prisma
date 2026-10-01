@@ -128,14 +128,40 @@ model BookModule {
   content        String
   priceCents     Int
   coverEmoji     String   @default("📘")
+  /// Link de um checkout externo (ex.: Kiwify). Quando preenchido, o botão de compra leva para lá.
+  checkoutUrl    String?
   position       Int      @default(0)
   active         Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   categories ModuleCategory[]
+  videos     ModuleVideo[]
   stages     Stage[]
   orderItems OrderItem[]
+}
+
+/// Aula em vídeo de um módulo (curta, ~1 minuto). O roteiro é exibido como transcrição.
+model ModuleVideo {
+  id              String     @id @default(cuid())
+  moduleId        String
+  module          BookModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title           String
+  durationSeconds Int        @default(60)
+  /// Roteiro de narração (também usado como transcrição, por acessibilidade).
+  script          String     @default("")
+  /// Frases curtas para exibir na tela durante o vídeo (uma por linha).
+  keyPoints       String     @default("")
+  /// YouTube, Vimeo, Panda Video ou arquivo .mp4. Vazio = vídeo ainda em produção.
+  videoUrl        String?
+  /// Amostra grátis exibida na página pública do módulo.
+  isPreview       Boolean    @default(false)
+  position        Int        @default(0)
+  active          Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([moduleId, position])
 }
 
 model ModuleCategory {

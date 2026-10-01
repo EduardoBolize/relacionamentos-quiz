@@ -21,14 +21,16 @@ export function SafeMarkdown({ source, className = 'prose-content' }: { source: 
         switch (block.type) {
           case 'heading':
             return block.level === 2 ? <h2 key={index}>{renderInline(block.children)}</h2> : <h3 key={index}>{renderInline(block.children)}</h3>;
-          case 'list':
+          case 'list': {
+            const List = block.ordered ? 'ol' : 'ul';
             return (
-              <ul key={index}>
+              <List key={index}>
                 {block.items.map((item, itemIndex) => (
                   <li key={itemIndex}>{renderInline(item)}</li>
                 ))}
-              </ul>
+              </List>
             );
+          }
           case 'quote':
             return <blockquote key={index}>{renderInline(block.children)}</blockquote>;
           default:

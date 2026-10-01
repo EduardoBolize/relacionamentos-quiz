@@ -1,4 +1,5 @@
 import 'server-only';
+import { BRAND } from '@/lib/brand';
 import { db } from './db';
 import { getEnv } from './env';
 
@@ -60,30 +61,30 @@ export function absoluteUrl(path: string): string {
 
 // ───────────────────────────── Modelos ─────────────────────────────
 
-const SIGNATURE = '\n\n—\nEntre Nós (demonstração)\nEste é um e-mail automático. Se você não fez esta solicitação, ignore esta mensagem.';
+const SIGNATURE = `\n\n—\n${BRAND.name}\nEste é um e-mail automático. Se você não fez esta solicitação, ignore esta mensagem.`;
 
 export const emailTemplates = {
   resultLink(link: string): Omit<EmailMessage, 'to'> {
     return {
-      subject: 'Seu resultado do quiz Entre Nós',
-      text: `Olá!\n\nAqui está o link para rever o resultado do seu quiz quando quiser:\n${link}\n\nGuarde este link: ele é a chave de acesso ao seu resultado. Não o compartilhe com quem você não confia.${SIGNATURE}`,
+      subject: `Seu resultado do quiz ${BRAND.name}`,
+      text: `Olá!\n\nAqui está o link para rever o resultado do seu quiz e o seu módulo ideal quando quiser:\n${link}\n\nGuarde este link: ele é a chave de acesso ao seu resultado. Não o compartilhe com quem você não confia.${SIGNATURE}`,
     };
   },
   recovery(link: string): Omit<EmailMessage, 'to'> {
     return {
-      subject: 'Recupere seu resultado — Entre Nós',
+      subject: `Recupere seu resultado — ${BRAND.name}`,
       text: `Olá!\n\nRecebemos um pedido para recuperar seus resultados. Use o link abaixo (válido por 30 minutos, uso único):\n${link}${SIGNATURE}`,
     };
   },
   orderPaid(link: string, titles: string[]): Omit<EmailMessage, 'to'> {
     return {
-      subject: 'Pagamento confirmado — seu acesso ao Entre Nós',
-      text: `Olá!\n\nSeu pagamento foi confirmado. Módulos liberados:\n${titles.map((t) => `• ${t}`).join('\n')}\n\nAcesse quando quiser:\n${link}\n\nEste link é pessoal.${SIGNATURE}`,
+      subject: `Pagamento confirmado — seu acesso ao ${BRAND.name}`,
+      text: `Olá!\n\nSeu pagamento foi confirmado. Módulos liberados (texto + aulas em vídeo):\n${titles.map((t) => `• ${t}`).join('\n')}\n\nAcesse quando quiser:\n${link}\n\nEste link é pessoal.${SIGNATURE}`,
     };
   },
   orderCreated(link: string, method: string): Omit<EmailMessage, 'to'> {
     return {
-      subject: 'Recebemos seu pedido — Entre Nós',
+      subject: `Recebemos seu pedido — ${BRAND.name}`,
       text: `Olá!\n\nSeu pedido foi registrado (pagamento via ${method}). Acompanhe o status e conclua o pagamento em:\n${link}${SIGNATURE}`,
     };
   },

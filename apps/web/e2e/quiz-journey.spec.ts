@@ -31,23 +31,25 @@ async function answerWholeQuiz(page: Page) {
   throw new Error('O quiz não chegou ao resultado');
 }
 
-test('jornada completa: landing → quiz adaptativo → resultado → checkout Pix → acesso ao conteúdo', async ({ page }) => {
+test('jornada completa: landing → quiz adaptativo → módulo ideal → checkout Pix → aulas e texto', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText(/relacionamento/i);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(/módulo ideal/i);
   await page.getByRole('button', { name: 'Aceitar métricas anônimas' }).click();
 
-  await page.getByRole('link', { name: /Faça sua análise gratuita/i }).click();
+  await page.getByRole('link', { name: /Descobrir meu módulo ideal/i }).first().click();
   await page.getByRole('button', { name: /Começar agora/i }).click();
 
   // uma pergunta por vez, com progresso visível e acessível
-  await expect(page.getByRole('progressbar', { name: 'Progresso do teste' })).toBeVisible();
+  await expect(page.getByRole('progressbar', { name: 'Progresso do quiz' })).toBeVisible();
   const priceSteps = await answerWholeQuiz(page);
-  expect(priceSteps).toBe(6);
+  expect(priceSteps).toBe(2); // "Você em primeiro lugar" + a etapa do momento (conquista)
 
   await expect(page).toHaveURL(/\/resultado\/[A-Za-z0-9_-]{43}$/);
   await expect(page.getByText(/não é um diagnóstico/i).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Como cada tema apareceu' })).toBeVisible();
-  await expect(page.getByRole('progressbar')).toHaveCount(6);
+  await expect(page.getByRole('progressbar')).toHaveCount(8);
+  await expect(page.getByRole('heading', { name: /Seu módulo ideal/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Suas dúvidas, respondidas' })).toBeVisible();
   const resultUrl = page.url();
 
   // link de compartilhamento: somente leitura (sem excluir, sem e-mail)
@@ -60,8 +62,8 @@ test('jornada completa: landing → quiz adaptativo → resultado → checkout P
   await expect(viewer.getByRole('button', { name: /Excluir meus dados/ })).toHaveCount(0);
   await viewer.close();
 
-  // checkout a partir da primeira seção recomendada
-  await page.getByRole('link', { name: /Quero esta seção/ }).first().click();
+  // checkout a partir do módulo ideal
+  await page.getByRole('link', { name: /Quero este módulo/ }).first().click();
   await expect(page.getByRole('heading', { name: 'Finalizar compra' })).toBeVisible();
   await page.getByLabel('Nome completo').fill('Pessoa E2E');
   await page.getByLabel('E-mail').fill('pessoa.e2e@example.com');
@@ -73,8 +75,10 @@ test('jornada completa: landing → quiz adaptativo → resultado → checkout P
   await page.getByRole('button', { name: 'Simular pagamento aprovado' }).click();
   await expect(page.getByText('Pagamento confirmado')).toBeVisible();
 
-  await page.getByRole('link', { name: 'Ler agora' }).first().click();
-  await expect(page.getByText(/Conteúdo de demonstração/)).toBeVisible();
+  await page.getByRole('link', { name: 'Acessar aulas' }).first().click();
+  await expect(page.getByRole('heading', { name: /Aulas em vídeo/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Texto do módulo/ })).toBeVisible();
+  await expect(page.getByText('Aula 3.')).toBeVisible();
 
   // o resultado continua acessível pelo link salvo
   await page.goto(resultUrl);
@@ -82,7 +86,7 @@ test('jornada completa: landing → quiz adaptativo → resultado → checkout P
 });
 
 test('pagamento com cartão de teste recusado mostra o motivo e permite tentar de novo', async ({ page }) => {
-  await page.goto('/checkout?modulos=dinheiro-a-dois');
+  await page.goto('/checkout?modulos=romance-e-surpresas');
   await page.getByLabel('Nome completo').fill('Pessoa Cartão');
   await page.getByLabel('E-mail').fill('cartao.e2e@example.com');
   await page.getByText('Cartão', { exact: true }).click();
@@ -95,7 +99,7 @@ test('pagamento com cartão de teste recusado mostra o motivo e permite tentar d
 
   await expect(page.getByRole('heading', { name: 'Pagamento não aprovado' })).toBeVisible();
   await expect(page.getByText(/recusado/i).first()).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Tentar novamente' })).toHaveAttribute('href', '/checkout?modulos=dinheiro-a-dois');
+  await expect(page.getByRole('link', { name: 'Tentar novamente' })).toHaveAttribute('href', '/checkout?modulos=romance-e-surpresas');
 });
 
 test('cabeçalhos de segurança e páginas privadas', async ({ request }) => {
@@ -103,6 +107,7 @@ test('cabeçalhos de segurança e páginas privadas', async ({ request }) => {
   const csp = home.headers()['content-security-policy'] ?? '';
   expect(csp).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
   expect(csp).toContain("frame-ancestors 'none'");
+  expect(csp).toContain('frame-src https://www.youtube-nocookie.com https://player.vimeo.com');
   expect(home.headers()['x-frame-options']).toBe('DENY');
   expect(home.headers()['x-content-type-options']).toBe('nosniff');
   expect(home.headers()['x-powered-by']).toBeUndefined();

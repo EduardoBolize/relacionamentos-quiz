@@ -53,12 +53,13 @@ export function uniqueEmail(prefix: string): string {
   return `${prefix}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}@example.com`;
 }
 
-/** Caminho com forte ênfase em conflitos (inclui o sinal de cuidado). */
-export const CONFLICT_CHOICES: Record<string, string[]> = {
-  q_status: ['opt_status_juntos'],
-  q_motivo: ['opt_motivo_brigas'],
-  q_confl_freq: ['opt_confl_freq_dia'],
-  q_confl_fim: ['opt_confl_fim_repete'],
-  q_confl_medo: ['opt_confl_medo_frequente'],
-  'price:stg_conflitos': ['agree'],
+/** Quem terminou e pensa em voltar, com sinal de cuidado (medo, humilhação ou agressão). */
+export const BREAKUP_CHOICES: Record<string, string[]> = {
+  q_momento: ['opt_momento_ex'],
+  q_desafio: ['opt_desafio_saudade'],
+  q_seguranca: ['opt_seguranca_frequente'],
+  q_term_quando: ['opt_quando_recente'],
+  q_term_motivo: ['opt_motivo_amor'],
+  q_term_contato: ['opt_contato_conflito'],
+  'price:stg_termino': ['agree'],
 };

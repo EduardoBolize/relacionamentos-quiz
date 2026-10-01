@@ -13,7 +13,7 @@ const NAV = [
   { href: '/admin/etapas', label: 'Etapas' },
   { href: '/admin/perguntas', label: 'Perguntas e pesos' },
   { href: '/admin/regras', label: 'Regras' },
-  { href: '/admin/modulos', label: 'Módulos do livro' },
+  { href: '/admin/modulos', label: 'Módulos e aulas' },
   { href: '/admin/precos', label: 'Preços' },
   { href: '/admin/configuracoes', label: 'Configurações' },
   { href: '/admin/pedidos', label: 'Pedidos' },

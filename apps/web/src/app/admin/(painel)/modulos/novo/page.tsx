@@ -13,7 +13,7 @@ export default async function NewModulePage() {
   ]);
   return (
     <>
-      <PageHeader title="Novo módulo" description="Uma nova seção do livro, com prévia pública e conteúdo liberado após o pagamento." />
+      <PageHeader title="Novo módulo" description="Um novo módulo do curso, com prévia pública, aulas em vídeo e texto liberados após o pagamento." />
       <ModuleForm initial={{ ...EMPTY_MODULE, position: count }} categories={categories.map((c) => ({ id: c.id, name: c.name }))} />
     </>
   );

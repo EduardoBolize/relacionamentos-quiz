@@ -2,11 +2,11 @@
   "name": "@relacionamentos/db",
   "version": "0.1.0",
   "private": true,
-  "description": "Esquema do banco (Prisma), cliente, carregamento da definição do quiz e seed de demonstração.",
+  "description": "Esquema do banco (Prisma), cliente, carregamento da definição do quiz e conteúdo do curso.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./demo-content": "./seed/demo-content.ts",
+    "./content": "./seed/content/index.ts",
     "./seed": "./seed/seed-lib.ts"
   },
   "scripts": {

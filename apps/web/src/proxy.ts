@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { VIDEO_FRAME_SOURCES } from '@/lib/video';
 
 /**
  * Executa antes de cada página:
@@ -24,6 +25,9 @@ export function proxy(request: NextRequest) {
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
+    // aulas em vídeo: só os players de incorporação aceitos por `parseVideoUrl` e arquivos .mp4 em https
+    `frame-src ${VIDEO_FRAME_SOURCES.join(' ')}`,
+    "media-src 'self' https:",
     `connect-src 'self'${isDev ? ' ws: wss:' : ''}`,
     "object-src 'none'",
     "base-uri 'self'",

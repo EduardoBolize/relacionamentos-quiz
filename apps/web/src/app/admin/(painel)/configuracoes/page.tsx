@@ -1,20 +1,33 @@
 import { Card, PageHeader } from '@/components/admin/AdminUi';
-import { EngineAndPaymentSettingsForm, PasswordForm } from '@/components/admin/SettingsForms';
+import { CourseSettingsForm, EngineAndPaymentSettingsForm, ObjectionsForm, PasswordForm } from '@/components/admin/SettingsForms';
 import { requireAdminPage } from '@/server/auth/admin-auth';
 import { getEnv } from '@/server/env';
-import { getEngineSettings, getPaymentSettings } from '@/server/settings';
+import { getCourseSettings, getEngineSettings, getObjections, getPaymentSettings } from '@/server/settings';
 
 export const metadata = { title: 'Configurações' };
 
 export default async function SettingsPage() {
   const admin = await requireAdminPage();
-  const [engine, payment] = await Promise.all([getEngineSettings(), getPaymentSettings()]);
+  const [engine, payment, course, objections] = await Promise.all([
+    getEngineSettings(),
+    getPaymentSettings(),
+    getCourseSettings(),
+    getObjections(),
+  ]);
   const env = getEnv();
 
   return (
     <>
-      <PageHeader title="Configurações" description="Limites do motor de recomendação, prazos de pagamento e sua conta." />
+      <PageHeader title="Configurações" description="Oferta do curso, respostas às dúvidas, limites do motor de recomendação, prazos de pagamento e sua conta." />
       <div className="space-y-6">
+        <Card>
+          <h2 className="mb-3 text-lg font-bold text-night-900">Oferta do curso</h2>
+          <CourseSettingsForm course={course} />
+        </Card>
+        <Card>
+          <h2 className="mb-1 text-lg font-bold text-night-900">Respostas às dúvidas (objeções)</h2>
+          <ObjectionsForm objections={objections} />
+        </Card>
         <Card>
           <EngineAndPaymentSettingsForm engine={engine} payment={payment} />
         </Card>

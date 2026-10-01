@@ -25,7 +25,7 @@ export default async function StagesPage() {
     <>
       <PageHeader
         title="Etapas do quiz"
-        description="As perguntas são agrupadas em etapas. Ao final de cada etapa ligada a um módulo do livro, a pessoa responde se concorda com o valor daquela seção."
+        description="As perguntas são agrupadas em etapas. Ao final de cada etapa ligada a um módulo do curso, a pessoa responde se concorda com o valor daquele módulo."
       />
       <div className="space-y-4">
         {stages.map((stage, index) => {

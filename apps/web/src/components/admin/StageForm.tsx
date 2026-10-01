@@ -55,7 +55,7 @@ export function StageForm({ initial, references }: { initial: StageFormValue; re
       <TextAreaField className="md:col-span-2" label="Descrição" rows={2} value={value.description} onChange={(e) => set('description', e.target.value)} />
 
       <fieldset className="md:col-span-2 rounded-xl border border-slate-200 p-4">
-        <legend className="px-1 text-sm font-semibold text-slate-800">Seção do livro e pergunta de valor</legend>
+        <legend className="px-1 text-sm font-semibold text-slate-800">Módulo do curso e pergunta de valor</legend>
         <div className="grid gap-4 md:grid-cols-3">
           <SelectField
             label="Módulo relacionado"

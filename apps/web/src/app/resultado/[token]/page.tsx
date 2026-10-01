@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SAFETY_FLAG } from '@relacionamentos/quiz-engine';
+import { BuyLink } from '@/components/course/BuyLink';
 import { SafeMarkdown } from '@/components/SafeMarkdown';
 import { PreviewDetails } from '@/components/result/PreviewDetails';
 import {
@@ -17,9 +18,12 @@ import { SupportResources } from '@/components/site/SupportResources';
 import { ButtonLink } from '@/components/ui/Button';
 import { Alert, Badge, ProgressBar } from '@/components/ui/Feedback';
 import { Icon } from '@/components/ui/Icon';
-import type { RecommendationReasonDTO, ThemeDTO } from '@/lib/dto';
+import { BRAND } from '@/lib/brand';
+import type { RecommendationReasonDTO, ResultModuleDTO, ThemeDTO } from '@/lib/dto';
 import { formatBRL, formatDateTime } from '@/lib/format';
+import { getObjectionAnswers, getOfferInfo, installmentText } from '@/server/offer';
 import { getResultView } from '@/server/services/result-service';
+import { getPricingSettings } from '@/server/settings';
 
 export const metadata: Metadata = { title: 'Seu resultado', robots: { index: false, follow: false } };
 
@@ -38,16 +42,40 @@ function intensity(score: number): string {
   return 'Não apareceu';
 }
 
+function ModuleBadges({ module }: { module: ResultModuleDTO }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Badge>{REASON_LABELS[module.reason]}</Badge>
+      {module.categoryName && module.reason !== 'primary' ? (
+        <Badge className="bg-slate-100 text-slate-700">{module.categoryName}</Badge>
+      ) : null}
+      {module.priceAgreement === 'agree' && module.reason !== 'price_agreed' ? (
+        <Badge className="bg-green-100 text-green-800">
+          <Icon name="check" className="h-3 w-3" /> Você concordou com o valor
+        </Badge>
+      ) : null}
+    </div>
+  );
+}
+
 export default async function ResultPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const result = await getResultView(token);
   if (!result) notFound();
+  const [offer, pricing] = await Promise.all([getOfferInfo(), getPricingSettings()]);
+  const answers = await getObjectionAnswers(offer, result.flags);
+  const installments = installmentText(offer);
 
   const safety = result.flags.includes(SAFETY_FLAG);
   const isOwner = result.access === 'owner';
-  const preselected = result.modules.filter((module) => module.preselected).map((module) => module.slug);
-  const allSlugs = result.modules.map((module) => module.slug);
-  const checkoutSlugs = preselected.length ? preselected : allSlugs.slice(0, 1);
+  const [ideal, ...others] = result.modules;
+  const internalSlugs = result.modules.filter((module) => !module.buyExternal).map((module) => module.slug);
+  const preselected = result.modules.filter((module) => module.preselected && !module.buyExternal).map((module) => module.slug);
+  const packageSlugs = preselected.length > 1 ? preselected : internalSlugs.slice(0, 2);
+  const comboText =
+    pricing.comboDiscountPercent > 0
+      ? ` e ganha ${pricing.comboDiscountPercent}% de desconto a partir de ${pricing.comboMinItems} módulos`
+      : '';
 
   return (
     <>
@@ -77,7 +105,8 @@ export default async function ResultPage({ params }: { params: Promise<{ token: 
                 <h1 className="mt-3 text-2xl leading-tight font-bold sm:text-4xl">Nenhum tema se destacou fortemente</h1>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-night-100 sm:text-lg">
                   Suas respostas não apontaram um tema com intensidade maior que os outros. Isso pode indicar uma fase mais
-                  tranquila — e também é um bom momento para cuidar do que já funciona bem.
+                  tranquila, e também é um bom momento para cuidar do que já funciona bem. Abaixo está o módulo que mais combina
+                  com o seu momento.
                 </p>
               </>
             )}
@@ -85,7 +114,7 @@ export default async function ResultPage({ params }: { params: Promise<{ token: 
               <Icon name="info" className="mt-0.5 h-5 w-5 shrink-0 text-brand-300" />
               <span>
                 Este resultado <strong className="text-white">não é um diagnóstico</strong>. Ele mostra quais temas
-                apareceram mais nas suas respostas, para ajudar você a refletir e escolher por onde começar.
+                apareceram mais nas suas respostas, para ajudar você a escolher por onde começar.
               </span>
             </p>
           </div>
@@ -93,6 +122,130 @@ export default async function ResultPage({ params }: { params: Promise<{ token: 
 
         <div className="mx-auto max-w-4xl space-y-8 px-4 py-10">
           {safety ? <SupportResources emphasis /> : null}
+
+          <section aria-labelledby="modulo-ideal">
+            <h2 id="modulo-ideal" className="text-xl font-bold text-night-900">
+              Seu módulo ideal no {BRAND.name}
+            </h2>
+            {ideal ? (
+              <article className="mt-4 rounded-2xl bg-white p-5 shadow-md ring-2 ring-brand-400 sm:p-6">
+                <ModuleBadges module={ideal} />
+                <div className="mt-4 flex gap-4">
+                  <span className="text-5xl" aria-hidden="true">{ideal.coverEmoji}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-slate-500">{ideal.subtitle}</p>
+                    <h3 className="text-xl font-bold text-night-900 sm:text-2xl">{ideal.title}</h3>
+                    <p className="mt-1 leading-relaxed text-slate-600">{ideal.description}</p>
+                    <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+                      <span className="flex items-center gap-1.5">
+                        <Icon name="video" className="h-4 w-4 text-brand-600" /> {ideal.videoCount} aulas de ~1 min
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Icon name="book" className="h-4 w-4 text-brand-600" /> Texto com exercícios
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <PreviewDetails moduleId={ideal.id}>
+                  <SafeMarkdown source={ideal.previewContent} />
+                </PreviewDetails>
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                  <span className="font-display text-3xl font-extrabold text-night-900">{formatBRL(ideal.priceCents)}</span>
+                  <div className="flex flex-wrap gap-2">
+                    <ButtonLink href={`/modulos/${ideal.slug}`} variant="secondary">
+                      Ver aula grátis
+                    </ButtonLink>
+                    <BuyLink href={ideal.buyHref} external={ideal.buyExternal} variant={safety ? 'secondary' : 'primary'}>
+                      Quero este módulo
+                    </BuyLink>
+                  </div>
+                </div>
+              </article>
+            ) : (
+              <p className="mt-2 text-sm text-slate-600">
+                Nenhum módulo foi indicado especificamente para você agora. Se quiser, conheça{' '}
+                <Link href="/#modulos" className="font-medium text-brand-700 underline">todos os módulos do curso</Link>.
+              </p>
+            )}
+          </section>
+
+          {others.length ? (
+            <section aria-labelledby="tambem">
+              <h2 id="tambem" className="text-xl font-bold text-night-900">Também indicados para você</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Escolhidos a partir dos seus temas e das suas respostas sobre o valor de cada módulo. Veja a prévia antes de decidir.
+              </p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {others.map((module) => (
+                  <article key={module.id} className="flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+                    <ModuleBadges module={module} />
+                    <div className="mt-3 flex gap-3">
+                      <span className="text-3xl" aria-hidden="true">{module.coverEmoji}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-slate-500">{module.subtitle}</p>
+                        <h3 className="font-bold text-night-900">{module.title}</h3>
+                      </div>
+                    </div>
+                    <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-600">{module.description}</p>
+                    <PreviewDetails moduleId={module.id}>
+                      <SafeMarkdown source={module.previewContent} />
+                    </PreviewDetails>
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                      <span className="font-display text-xl font-extrabold text-night-900">{formatBRL(module.priceCents)}</span>
+                      <BuyLink href={module.buyHref} external={module.buyExternal} variant="secondary" size="sm">
+                        Quero este módulo
+                      </BuyLink>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              {packageSlugs.length > 1 ? (
+                <p className="mt-4 text-sm text-slate-600">
+                  Prefere levar mais de um módulo? No checkout você escolhe quais{comboText}.{' '}
+                  <Link href={`/checkout?modulos=${packageSlugs.join(',')}`} className="font-semibold text-brand-700 underline">
+                    Montar meu pacote
+                  </Link>
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+
+          {offer.moduleCount > 1 ? (
+            <section
+              aria-labelledby="curso-completo"
+              className="flex flex-col items-start gap-4 rounded-2xl bg-night-900 p-6 text-white sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div>
+                <h2 id="curso-completo" className="text-lg font-bold">
+                  Curso completo: {offer.moduleCount} módulos por {formatBRL(offer.courseTotalCents)}
+                </h2>
+                <p className="mt-1 text-sm text-night-200">
+                  {installments ? `Parcele ${installments}. ` : ''}
+                  Todos os temas, do amor-próprio à reconquista
+                  {offer.guaranteeDays ? `, com garantia de ${offer.guaranteeDays} dias` : ''}.
+                </p>
+              </div>
+              <BuyLink href={offer.fullCourseHref} external={offer.fullCourseExternal} variant="onDark">
+                Quero o curso completo
+              </BuyLink>
+            </section>
+          ) : null}
+
+          {answers.length ? (
+            <section aria-labelledby="duvidas">
+              <h2 id="duvidas" className="text-xl font-bold text-night-900">Suas dúvidas, respondidas</h2>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {answers.map((answer) => (
+                  <article key={answer.flag} className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+                    <h3 className="flex items-start gap-2 font-semibold text-night-900">
+                      <Icon name="heart" className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" /> {answer.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{answer.answer}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section aria-labelledby="pontuacoes" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
             <h2 id="pontuacoes" className="text-xl font-bold text-night-900">Como cada tema apareceu</h2>
@@ -135,66 +288,6 @@ export default async function ResultPage({ params }: { params: Promise<{ token: 
             </section>
           ) : null}
 
-          <section aria-labelledby="modulos">
-            <h2 id="modulos" className="text-xl font-bold text-night-900">Por onde começar no livro “Entre Nós”</h2>
-            {result.modules.length ? (
-              <>
-                <p className="mt-1 text-sm text-slate-600">
-                  Seções escolhidas a partir dos seus temas e das suas respostas sobre o valor de cada uma. Leia a prévia antes de decidir.
-                </p>
-                <div className="mt-4 space-y-4">
-                  {result.modules.map((module) => (
-                    <article key={module.id} className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge>{REASON_LABELS[module.reason]}</Badge>
-                        {module.categoryName && module.reason !== 'primary' ? (
-                          <Badge className="bg-slate-100 text-slate-700">{module.categoryName}</Badge>
-                        ) : null}
-                        {module.priceAgreement === 'agree' && module.reason !== 'price_agreed' ? (
-                          <Badge className="bg-green-100 text-green-800">
-                            <Icon name="check" className="h-3 w-3" /> Você concordou com o valor
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <div className="mt-4 flex gap-4">
-                        <span className="text-4xl" aria-hidden="true">{module.coverEmoji}</span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-slate-500">{module.subtitle}</p>
-                          <h3 className="text-lg font-bold text-night-900">{module.title}</h3>
-                          <p className="mt-1 text-sm leading-relaxed text-slate-600">{module.description}</p>
-                        </div>
-                      </div>
-                      <PreviewDetails moduleId={module.id}>
-                        <SafeMarkdown source={module.previewContent} />
-                      </PreviewDetails>
-                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                        <span className="font-display text-2xl font-extrabold text-night-900">{formatBRL(module.priceCents)}</span>
-                        <ButtonLink href={`/checkout?modulos=${module.slug}`} variant={safety ? 'secondary' : 'primary'}>
-                          Quero esta seção <Icon name="arrowRight" className="h-4 w-4" />
-                        </ButtonLink>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-                {allSlugs.length > 1 ? (
-                  <div className="mt-6 flex flex-col items-start gap-3 rounded-2xl bg-brand-50 p-5 ring-1 ring-brand-200 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm text-brand-900">
-                      Prefere levar mais de uma seção? No checkout você escolhe quais e ganha desconto a partir de 2.
-                    </p>
-                    <ButtonLink href={`/checkout?modulos=${checkoutSlugs.join(',')}`} variant="primary" size="sm">
-                      Montar meu pacote
-                    </ButtonLink>
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <p className="mt-2 text-sm text-slate-600">
-                Nenhuma seção foi indicada especificamente para você agora. Se quiser, conheça{' '}
-                <Link href="/#livro" className="font-medium text-brand-700 underline">todas as seções do livro</Link>.
-              </p>
-            )}
-          </section>
-
           {!safety ? <SupportResources /> : null}
 
           {isOwner ? (
@@ -211,7 +304,7 @@ export default async function ResultPage({ params }: { params: Promise<{ token: 
                 <h2 className="text-lg font-bold text-night-900">Outras opções</h2>
                 <ShareLinkButton token={token} />
                 <ButtonLink href="/quiz?novo=1" variant="secondary" size="sm">
-                  Refazer o teste
+                  Refazer o quiz
                 </ButtonLink>
                 <div className="mt-auto space-y-3 border-t border-slate-200 pt-4">
                   <p className="text-xs text-slate-500">
@@ -226,9 +319,9 @@ export default async function ResultPage({ params }: { params: Promise<{ token: 
             </section>
           ) : (
             <p className="text-center text-sm text-slate-600">
-              Quer descobrir os temas do seu relacionamento?{' '}
+              Quer descobrir o seu módulo ideal?{' '}
               <Link href="/quiz?novo=1" className="font-medium text-brand-700 underline">
-                Faça o teste gratuito
+                Faça o quiz gratuito
               </Link>
               .
             </p>

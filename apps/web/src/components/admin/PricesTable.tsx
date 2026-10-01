@@ -21,7 +21,7 @@ export interface PriceRow {
 
 /**
  * Preços editáveis lado a lado com a concordância registrada nas perguntas de fim de etapa —
- * ajuda a calibrar o valor de cada seção do livro.
+ * ajuda a calibrar o valor de cada módulo do curso.
  */
 export function PricesTable({ rows }: { rows: PriceRow[] }) {
   const [prices, setPrices] = useState<Record<string, string>>(

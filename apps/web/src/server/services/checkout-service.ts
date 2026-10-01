@@ -9,6 +9,7 @@ import {
   type Charge,
 } from '@relacionamentos/payments';
 import { z } from 'zod';
+import { BRAND } from '@/lib/brand';
 import type { CatalogModuleDTO, OrderViewDTO, QuoteDTO } from '@/lib/dto';
 import { trackEvent } from '../analytics';
 import { db } from '../db';
@@ -144,7 +145,7 @@ export async function createOrder(input: OrderInput, context: CreateOrderContext
     charge = await gateway.createCharge({
       orderId: order.id,
       amountCents: quote.totalCents,
-      description: `Entre Nós — ${modules.length} módulo(s)`,
+      description: `${BRAND.name} — ${modules.length} módulo(s)`,
       method: input.method,
       customer: {
         name: input.customer.name,
@@ -272,7 +273,18 @@ export async function getPurchasedModule(token: string, slug: string) {
   if (!order || order.status !== 'paid') return null;
   const item = order.items.find((entry) => entry.module.slug === slug);
   if (!item) return null;
-  return { title: item.module.title, subtitle: item.module.subtitle, coverEmoji: item.module.coverEmoji, content: item.module.content };
+  const videos = await db().moduleVideo.findMany({
+    where: { moduleId: item.moduleId, active: true },
+    orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+    select: { id: true, title: true, durationSeconds: true, script: true, keyPoints: true, videoUrl: true },
+  });
+  return {
+    title: item.module.title,
+    subtitle: item.module.subtitle,
+    coverEmoji: item.module.coverEmoji,
+    content: item.module.content,
+    videos,
+  };
 }
 
 export function describeTotal(quote: QuoteDTO): string {

@@ -53,7 +53,7 @@ export function QuizRunner({ startFresh = false }: { startFresh?: boolean }) {
     try {
       showState(await apiFetch<QuizStateDTO>('/api/quiz/session', { body: { source: 'quiz_page' } }));
     } catch (err) {
-      setPhase({ name: 'error', message: err instanceof ApiError ? err.message : 'Não foi possível iniciar o teste.' });
+      setPhase({ name: 'error', message: err instanceof ApiError ? err.message : 'Não foi possível iniciar o quiz.' });
     } finally {
       setBusy(false);
     }
@@ -76,7 +76,7 @@ export function QuizRunner({ startFresh = false }: { startFresh?: boolean }) {
         else if (state.status === 'completed') setPhase({ name: 'completed', resultPath: state.resultPath });
         else showState(state);
       } catch {
-        setPhase({ name: 'error', message: 'Não foi possível carregar o teste.' });
+        setPhase({ name: 'error', message: 'Não foi possível carregar o quiz.' });
       }
     })();
   }, [router, showState, start, startFresh]);
@@ -121,7 +121,7 @@ export function QuizRunner({ startFresh = false }: { startFresh?: boolean }) {
   }, [busy, phase, showState]);
 
   const restart = useCallback(async () => {
-    if (!window.confirm('Recomeçar o teste do início? As respostas atuais serão descartadas.')) return;
+    if (!window.confirm('Recomeçar o quiz do início? As respostas atuais serão descartadas.')) return;
     lastStageId.current = null;
     await start();
   }, [start]);
@@ -133,7 +133,7 @@ export function QuizRunner({ startFresh = false }: { startFresh?: boolean }) {
     <div className="flex min-h-dvh flex-col bg-night-900 text-white">
       <header className="border-b border-white/5">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4">
-          <Link href="/" aria-label="Sair do teste e voltar à página inicial">
+          <Link href="/" aria-label="Sair do quiz e voltar à página inicial">
             <Logo />
           </Link>
           {step ? (
@@ -152,7 +152,7 @@ export function QuizRunner({ startFresh = false }: { startFresh?: boolean }) {
         {progress && step ? (
           <ProgressBar
             value={progress.percent}
-            label="Progresso do teste"
+            label="Progresso do quiz"
             valueText={`${progress.percent}% concluído — etapa ${step.stage.index + 1} de ${step.stage.count}`}
             className="h-1.5 rounded-none"
             trackClassName="bg-night-700"
@@ -173,14 +173,14 @@ export function QuizRunner({ startFresh = false }: { startFresh?: boolean }) {
 
         {phase.name === 'completed' ? (
           <div className="animate-fade-up mx-auto max-w-xl text-center">
-            <h1 className="text-2xl font-bold sm:text-3xl">Você já concluiu o teste</h1>
-            <p className="mt-3 text-night-200">Quer ver o resultado novamente ou fazer o teste do zero?</p>
+            <h1 className="text-2xl font-bold sm:text-3xl">Você já concluiu o quiz</h1>
+            <p className="mt-3 text-night-200">Quer ver o resultado novamente ou fazer o quiz do zero?</p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link href={phase.resultPath} className="inline-flex min-h-11 items-center justify-center rounded-full bg-brand-500 px-6 py-3 font-semibold hover:bg-brand-400">
                 Ver meu resultado
               </Link>
               <button type="button" onClick={start} className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/30 px-6 py-3 font-semibold hover:bg-white/10">
-                Refazer o teste
+                Refazer o quiz
               </button>
             </div>
           </div>
@@ -261,13 +261,13 @@ function Intro({ onStart, busy, expired }: { onStart: () => void; busy: boolean;
           Sua sessão anterior expirou. Você pode começar de novo quando quiser.
         </p>
       ) : null}
-      <p className="text-sm font-semibold tracking-wide text-brand-300 uppercase">Análise de relacionamento</p>
+      <p className="text-sm font-semibold tracking-wide text-brand-300 uppercase">Qual é o seu módulo ideal?</p>
       <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Vamos começar?</h1>
       <ul className="mt-6 space-y-3 text-night-100">
         {[
-          'Leva cerca de 5 minutos. Você pode voltar e mudar respostas quando quiser.',
-          'As perguntas se adaptam ao seu momento — algumas só aparecem quando fazem sentido.',
-          'Ao final de cada etapa, mostramos a seção do livro relacionada e perguntamos se o valor faz sentido para você (sem nenhuma cobrança).',
+          'Leva cerca de 4 minutos. Você pode voltar e mudar respostas quando quiser.',
+          'As perguntas se adaptam ao seu momento: solteira, namorando, em crise ou depois do término.',
+          'Ao final de cada etapa, mostramos o módulo do curso relacionado e perguntamos se o valor faz sentido para você (sem nenhuma cobrança).',
           'Seu progresso fica salvo neste navegador. Não pedimos nome nem cadastro.',
         ].map((item) => (
           <li key={item} className="flex gap-3">
@@ -276,7 +276,7 @@ function Intro({ onStart, busy, expired }: { onStart: () => void; busy: boolean;
         ))}
       </ul>
       <p className="mt-6 rounded-xl bg-white/5 p-4 text-sm text-night-200">
-        Este teste é uma ferramenta de reflexão, <strong className="text-white">não um diagnóstico</strong>. Ao continuar,
+        Este quiz é uma ferramenta de reflexão, <strong className="text-white">não um diagnóstico</strong>. Ao continuar,
         você concorda com o uso das respostas para gerar seu resultado, conforme a{' '}
         <Link href="/privacidade" className="text-brand-300 underline">
           política de privacidade

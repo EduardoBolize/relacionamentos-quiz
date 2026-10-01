@@ -124,7 +124,7 @@ export function ConditionBuilder({ value, onChange, references, emptyLabel = 'Se
           className={`${inputClasses} font-mono text-xs`}
           rows={8}
           value={jsonText}
-          placeholder='Ex.: {"all":[{"answer":{"questionId":"q_status","op":"selected","optionIds":["opt_status_juntos"]}}]}'
+          placeholder='Ex.: {"all":[{"answer":{"questionId":"q_momento","op":"selected","optionIds":["opt_momento_casada"]}}]}'
           onChange={(event) => {
             setJsonText(event.target.value);
             if (!event.target.value.trim()) {

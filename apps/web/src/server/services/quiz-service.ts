@@ -109,10 +109,16 @@ async function toStepDTO(engine: QuizEngine, step: FlowStep, answers: Answers, p
     };
   }
 
-  const bookModule = await db().bookModule.findUnique({ where: { id: step.moduleId } });
+  const bookModule = await db().bookModule.findUnique({
+    where: { id: step.moduleId },
+    include: { _count: { select: { videos: { where: { active: true } } } } },
+  });
+  const videoHighlight = bookModule?._count.videos
+    ? [`${bookModule._count.videos} aulas em vídeo de cerca de 1 minuto + texto com exercícios`]
+    : [];
   return {
     ...base,
-    text: 'Você concorda com o valor desta seção do livro?',
+    text: 'Você concorda com o valor deste módulo?',
     helpText: 'Responder não gera nenhuma cobrança. Sua resposta só ajuda a montar a sua recomendação.',
     type: 'single',
     required: true,
@@ -128,7 +134,7 @@ async function toStepDTO(engine: QuizEngine, step: FlowStep, answers: Answers, p
           description: bookModule.description,
           priceCents: bookModule.priceCents,
           coverEmoji: bookModule.coverEmoji,
-          highlights: extractHighlights(bookModule.previewContent, 4),
+          highlights: [...videoHighlight, ...extractHighlights(bookModule.previewContent, 4 - videoHighlight.length)],
         }
       : null,
   };

@@ -19,6 +19,13 @@ produção.
 
 - **Content-Security-Policy com nonce por requisição** (`apps/web/src/proxy.ts`): `script-src 'self' 'nonce-…'
   'strict-dynamic'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`.
+  Aulas em vídeo: `frame-src` só para `www.youtube-nocookie.com`, `player.vimeo.com` e `*.tv.pandavideo.com.br`;
+  `media-src 'self' https:` para arquivos `.mp4`.
+- **Vídeos e links externos cadastrados no painel**: o link de cada aula é convertido para o endereço oficial de
+  incorporação (`parseVideoUrl`) e qualquer outro formato é recusado — o painel não consegue incorporar páginas
+  arbitrárias. Os iframes usam `sandbox` e `referrerpolicy="strict-origin"` (só a origem, nunca o token da URL das
+  páginas privadas). Links de checkout externo (Kiwify) só com `https:` e sem credenciais embutidas
+  (`javascript:`, `data:` e `http:` são recusados).
 - **Cabeçalhos** (`next.config.ts`): `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
   `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, HSTS em
   produção; `X-Powered-By` desativado.
@@ -75,7 +82,9 @@ produção.
 ### Entrada e dependências
 
 - Todas as entradas validadas com **zod** (limites de tamanho, esquemas `strict`), corpo JSON limitado (64 KB; 512 KB
-  para módulos), profundidade de condições limitada.
+  para módulos, incluindo as aulas), profundidade de condições limitada.
+- Scripts locais do curso: a exportação gera HTML com todo o texto escapado e imprime o PDF com o navegador em modo
+  headless, com perfil temporário e sem shell; o gerador de vídeos roda só localmente, com recursos do Windows.
 - Prisma com consultas parametrizadas (sem SQL injection).
 - npm 11 com `allowScripts`: apenas pacotes conhecidos executam scripts de instalação, com versões fixadas.
 - Código de servidor protegido por `server-only` e por regra de ESLint contra importação em componentes de cliente.
@@ -134,3 +143,5 @@ repetida em cada página/rota).
 - [ ] Revisão jurídica da política de privacidade e dos termos; nomear encarregado (DPO).
 - [ ] `npm audit` e atualização de dependências periódicas (ex.: Dependabot).
 - [ ] 2FA para administradores (evolução recomendada).
+- [ ] Se vender pela Kiwify: conferir que cada link de checkout cadastrado no painel abre a oferta certa e que os
+      grupos da área de membros liberam só o módulo comprado (compra de teste + reembolso).

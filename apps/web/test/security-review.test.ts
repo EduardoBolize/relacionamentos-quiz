@@ -142,10 +142,10 @@ describe('cookies', () => {
 describe('identificadores', () => {
   it('condições e pesos recusam chaves especiais como __proto__', () => {
     expect(conditionSchema.safeParse({ answer: { questionId: '__proto__', op: 'answered' } }).success).toBe(false);
-    expect(conditionSchema.safeParse({ answer: { questionId: 'q_status', op: 'answered' } }).success).toBe(true);
+    expect(conditionSchema.safeParse({ answer: { questionId: 'q_momento', op: 'answered' } }).success).toBe(true);
 
     const question = (weights: unknown) => ({
-      stageId: 'stg_perfil',
+      stageId: 'stg_momento',
       text: 'Pergunta de teste',
       helpText: null,
       type: 'single',

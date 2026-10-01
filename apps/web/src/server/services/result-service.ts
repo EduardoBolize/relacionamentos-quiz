@@ -6,6 +6,7 @@ import type { ResultModuleDTO, ResultViewDTO, ThemeDTO } from '@/lib/dto';
 import { db } from '../db';
 import { absoluteUrl, emailTemplates, sendEmailSafely } from '../email';
 import { HttpError } from '../http';
+import { moduleCheckoutHref } from '../offer';
 import { HOUR, enforceClientRateLimit, enforceRateLimit } from '../security/rate-limit';
 import { generateToken, hashToken, isValidTokenFormat } from '../security/tokens';
 import { findSessionAccess, findSessionByToken } from './quiz-service';
@@ -58,7 +59,10 @@ export async function getResultView(token: string): Promise<ResultViewDTO | null
 
   const [categories, modules] = await Promise.all([
     db().category.findMany(),
-    db().bookModule.findMany({ where: { id: { in: result.recommendedModules.map((m) => m.moduleId) }, active: true } }),
+    db().bookModule.findMany({
+      where: { id: { in: result.recommendedModules.map((m) => m.moduleId) }, active: true },
+      include: { _count: { select: { videos: { where: { active: true } } } } },
+    }),
   ]);
   const categoryById = new Map(categories.map((category) => [category.id, category]));
 
@@ -81,6 +85,7 @@ export async function getResultView(token: string): Promise<ResultViewDTO | null
   const recommended: ResultModuleDTO[] = result.recommendedModules.flatMap((entry) => {
     const bookModule = moduleById.get(entry.moduleId);
     if (!bookModule) return [];
+    const buy = moduleCheckoutHref(bookModule);
     return [
       {
         id: bookModule.id,
@@ -95,6 +100,9 @@ export async function getResultView(token: string): Promise<ResultViewDTO | null
         categoryName: entry.categoryId ? (categoryById.get(entry.categoryId)?.name ?? null) : null,
         priceAgreement: entry.priceAgreement ?? null,
         preselected: entry.preselected,
+        videoCount: bookModule._count.videos,
+        buyHref: buy.href,
+        buyExternal: buy.external,
       },
     ];
   });

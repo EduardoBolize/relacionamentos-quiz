@@ -5,20 +5,24 @@ import { formatBRL } from '@/lib/format';
 import { requireAdminPage } from '@/server/auth/admin-auth';
 import { db } from '@/server/db';
 
-export const metadata = { title: 'Módulos do livro' };
+export const metadata = { title: 'Módulos e aulas' };
 
 export default async function ModulesPage() {
   await requireAdminPage();
   const modules = await db().bookModule.findMany({
     orderBy: [{ position: 'asc' }, { title: 'asc' }],
-    include: { categories: { include: { category: true } }, _count: { select: { orderItems: true } } },
+    include: {
+      categories: { include: { category: true } },
+      videos: { select: { videoUrl: true, active: true } },
+      _count: { select: { orderItems: true } },
+    },
   });
 
   return (
     <>
       <PageHeader
-        title="Módulos do livro"
-        description="Cada módulo é uma seção do livro: título, prévia gratuita, conteúdo completo (liberado após o pagamento), preço e temas relacionados."
+        title="Módulos e aulas"
+        description="Cada módulo do curso tem prévia gratuita, aulas em vídeo (~1 minuto), texto completo (liberado após o pagamento), preço, temas relacionados e, se quiser, um link de checkout externo (ex.: Kiwify)."
         actions={
           <Link href="/admin/modulos/novo" className={buttonClasses('primary', 'sm')}>
             + Novo módulo
@@ -38,6 +42,11 @@ export default async function ModulesPage() {
                   <strong>{formatBRL(module.priceCents)}</strong>
                   <StatusPill active={module.active} />
                   <span className="text-xs text-slate-500">{module._count.orderItems} venda(s)</span>
+                  <span className="text-xs text-slate-500">
+                    {module.videos.filter((video) => video.active).length} aula(s) ·{' '}
+                    {module.videos.filter((video) => video.active && video.videoUrl).length} com vídeo publicado
+                  </span>
+                  {module.checkoutUrl ? <span className="text-xs font-medium text-brand-700">Checkout externo</span> : null}
                 </div>
               </div>
             </div>

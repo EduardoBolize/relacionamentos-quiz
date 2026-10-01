@@ -21,12 +21,12 @@ export default function RecoverPage() {
           </div>
           <div className="mt-8 space-y-2 text-sm text-slate-600">
             <p>
-              <strong>Está no mesmo navegador em que fez o teste?</strong>{' '}
+              <strong>Está no mesmo navegador em que fez o quiz?</strong>{' '}
               <Link href="/resultado" className="font-medium text-brand-700 underline">Abra seu último resultado</Link>.
             </p>
             <p>
               <strong>Não cadastrou e-mail?</strong> Use o link copiado da página do resultado ou{' '}
-              <Link href="/quiz?novo=1" className="font-medium text-brand-700 underline">faça o teste novamente</Link>.
+              <Link href="/quiz?novo=1" className="font-medium text-brand-700 underline">faça o quiz novamente</Link>.
             </p>
           </div>
         </div>

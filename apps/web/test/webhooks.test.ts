@@ -20,7 +20,7 @@ afterEach(() => {
 
 async function pendingPixOrder(email = uniqueEmail('pix')) {
   const input = orderInputSchema.parse({
-    moduleSlugs: ['perto-de-novo'],
+    moduleSlugs: ['romance-e-surpresas'],
     customer: { name: 'Pessoa Pix', email },
     method: 'pix',
     acceptTerms: true,

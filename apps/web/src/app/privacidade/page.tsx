@@ -8,16 +8,16 @@ const SECTIONS = [
   {
     title: 'Quais dados coletamos',
     items: [
-      'Respostas do teste: usadas somente para calcular o seu resultado. Não pedimos nome para fazer o teste.',
-      'E-mail (opcional): apenas se você pedir o envio do resultado ou comprar uma seção do livro.',
-      'Dados de compra: nome, e-mail, seções escolhidas e status do pagamento. Não armazenamos número de cartão, CVV nem CPF — esses dados vão direto ao provedor de pagamento.',
+      'Respostas do quiz: usadas somente para calcular o seu resultado. Não pedimos nome para fazer o quiz.',
+      'E-mail (opcional): apenas se você pedir o envio do resultado ou comprar um módulo do curso.',
+      'Dados de compra: nome, e-mail, módulos escolhidos e status do pagamento. Não armazenamos número de cartão, CVV nem CPF — esses dados vão direto ao provedor de pagamento.',
       'Métricas de uso anônimas: somente se você aceitar no aviso de cookies. Nunca incluem suas respostas.',
     ],
   },
   {
     title: 'Para que usamos',
     items: [
-      'Gerar e mostrar o resultado do teste e permitir que você o recupere.',
+      'Gerar e mostrar o resultado do quiz e permitir que você o recupere.',
       'Processar pedidos e liberar o acesso ao conteúdo comprado.',
       'Estatísticas agregadas (sem identificar pessoas) para melhorar perguntas e preços.',
     ],

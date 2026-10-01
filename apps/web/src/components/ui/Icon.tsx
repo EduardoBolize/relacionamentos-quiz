@@ -61,6 +61,13 @@ const paths = {
   logout: <path d="M15 4h4v16h-4M10 16l4-4-4-4M14 12H4" />,
   external: <path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  play: <path d="M8 5v14l11-7L8 5Z" />,
+  video: (
+    <>
+      <rect x="3" y="6" width="13" height="12" rx="2" />
+      <path d="m16 10 5-3v10l-5-3" />
+    </>
+  ),
   eye: (
     <>
       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />

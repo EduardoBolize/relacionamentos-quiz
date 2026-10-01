@@ -21,19 +21,29 @@ import { formatBRL } from '@/lib/format';
 
 type Method = 'pix' | 'boleto' | 'card';
 
-const METHODS: { id: Method; label: string; icon: IconName; hint: string }[] = [
-  { id: 'pix', label: 'Pix', icon: 'pix', hint: 'Aprovação em segundos' },
-  { id: 'boleto', label: 'Boleto', icon: 'barcode', hint: 'Compensação em até 3 dias úteis' },
-  { id: 'card', label: 'Cartão', icon: 'card', hint: 'Em até 3x sem juros' },
-];
+function methodOptions(maxInstallments: number): { id: Method; label: string; icon: IconName; hint: string }[] {
+  return [
+    { id: 'pix', label: 'Pix', icon: 'pix', hint: 'Aprovação em segundos' },
+    { id: 'boleto', label: 'Boleto', icon: 'barcode', hint: 'Compensação em até 3 dias úteis' },
+    { id: 'card', label: 'Cartão', icon: 'card', hint: maxInstallments > 1 ? `Em até ${maxInstallments}x sem juros` : 'À vista' },
+  ];
+}
+
+export interface CheckoutPricingInfo {
+  comboDiscountPercent: number;
+  comboMinItems: number;
+  maxInstallments: number;
+}
 
 interface CheckoutFormProps {
   catalog: CatalogModuleDTO[];
   initialSlugs: string[];
   recommendedSlugs: string[];
+  pricing: CheckoutPricingInfo;
 }
 
-export function CheckoutForm({ catalog, initialSlugs, recommendedSlugs }: CheckoutFormProps) {
+export function CheckoutForm({ catalog, initialSlugs, recommendedSlugs, pricing }: CheckoutFormProps) {
+  const methods = methodOptions(pricing.maxInstallments);
   const router = useRouter();
   const [slugs, setSlugs] = useState<string[]>(initialSlugs);
   const [fetchedQuote, setFetchedQuote] = useState<{ key: string; quote: QuoteDTO } | null>(null);
@@ -145,9 +155,26 @@ export function CheckoutForm({ catalog, initialSlugs, recommendedSlugs }: Checko
         </Alert>
 
         <fieldset className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
-          <legend className="sr-only">Seções do livro</legend>
-          <h2 className="text-lg font-bold text-night-900">1. Seções do livro</h2>
-          <p className="mt-1 text-sm text-slate-600">A partir de 2 seções, o desconto é aplicado automaticamente.</p>
+          <legend className="sr-only">Módulos do curso</legend>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-night-900">1. Módulos do curso</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {pricing.comboDiscountPercent > 0
+                  ? `A partir de ${pricing.comboMinItems} módulos, ${pricing.comboDiscountPercent}% de desconto automático.`
+                  : 'Escolha um ou mais módulos. Todos juntos formam o curso completo.'}
+              </p>
+            </div>
+            {slugs.length < catalog.length ? (
+              <button
+                type="button"
+                onClick={() => setSlugs(catalog.map((module) => module.slug))}
+                className="text-sm font-semibold text-brand-700 underline hover:text-brand-800"
+              >
+                Selecionar o curso completo
+              </button>
+            ) : null}
+          </div>
           <ul className="mt-4 space-y-3">
             {catalog.map((module) => {
               const checked = slugs.includes(module.slug);
@@ -209,7 +236,7 @@ export function CheckoutForm({ catalog, initialSlugs, recommendedSlugs }: Checko
           <legend className="sr-only">Forma de pagamento</legend>
           <h2 className="text-lg font-bold text-night-900">3. Forma de pagamento</h2>
           <div role="radiogroup" aria-label="Forma de pagamento" className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
-            {METHODS.map((option) => (
+            {methods.map((option) => (
               <label
                 key={option.id}
                 className={`flex cursor-pointer flex-col items-center gap-1 rounded-xl border p-3 text-center transition-colors has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-brand-400 ${
@@ -320,7 +347,7 @@ export function CheckoutForm({ catalog, initialSlugs, recommendedSlugs }: Checko
         <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
           <h2 className="text-lg font-bold text-night-900">Resumo</h2>
           {selectedModules.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-600">Escolha ao menos uma seção do livro.</p>
+            <p className="mt-3 text-sm text-slate-600">Escolha ao menos um módulo.</p>
           ) : (
             <ul className="mt-3 space-y-2 text-sm">
               {selectedModules.map((module) => (

@@ -12,7 +12,7 @@ import {
   requestRecovery,
   saveResultEmail,
 } from '@/server/services/result-service';
-import { CONFLICT_CHOICES, lastEmailTo, playQuiz, uniqueEmail } from './helpers';
+import { BREAKUP_CHOICES, lastEmailTo, playQuiz, uniqueEmail } from './helpers';
 
 beforeEach(() => {
   resetRateLimits();
@@ -26,12 +26,12 @@ const linkIn = (body: string | undefined, prefix: string) => {
 
 describe('recuperação de resultado', () => {
   it('o link do resultado dá acesso ao resultado congelado', async () => {
-    const { token } = await playQuiz(CONFLICT_CHOICES);
+    const { token } = await playQuiz(BREAKUP_CHOICES);
     const view = await getResultView(token);
-    expect(view?.primary).toMatchObject({ categoryId: 'cat_conflitos', name: 'Conflitos e discussões' });
+    expect(view?.primary).toMatchObject({ categoryId: 'cat_termino', name: 'Término e recomeço' });
     expect(view?.flags).toContain('safety_support');
-    expect(view?.modules[0]).toMatchObject({ slug: 'conflitos-sem-guerra', priceAgreement: 'agree', preselected: true });
-    expect(view?.scores.map((s) => s.categoryId)).toHaveLength(6);
+    expect(view?.modules[0]).toMatchObject({ slug: 'depois-do-termino', priceAgreement: 'agree', preselected: true, videoCount: 3, buyHref: '/checkout?modulos=depois-do-termino', buyExternal: false });
+    expect(view?.scores.map((s) => s.categoryId)).toHaveLength(8);
   });
 
   it('tokens inválidos, malformados ou de quiz não concluído não dão acesso', async () => {
@@ -52,7 +52,7 @@ describe('recuperação de resultado', () => {
 
   it('envia o link por e-mail (com consentimento) e permite recuperar por e-mail com link mágico de uso único', async () => {
     const email = uniqueEmail('recupera');
-    const { token } = await playQuiz(CONFLICT_CHOICES);
+    const { token } = await playQuiz(BREAKUP_CHOICES);
     await saveResultEmail(token, email.toUpperCase());
 
     const resultEmail = await lastEmailTo(email);
@@ -68,8 +68,8 @@ describe('recuperação de resultado', () => {
     expect(recovered).toHaveLength(1);
     const newToken = recovered![0]!.resultPath.replace('/resultado/', '');
     expect(newToken).not.toBe(token);
-    expect((await getResultView(newToken))?.primary?.categoryId).toBe('cat_conflitos');
-    expect((await getResultView(token))?.primary?.categoryId).toBe('cat_conflitos'); // o link antigo continua válido
+    expect((await getResultView(newToken))?.primary?.categoryId).toBe('cat_termino');
+    expect((await getResultView(token))?.primary?.categoryId).toBe('cat_termino'); // o link antigo continua válido
 
     // uso único
     expect(await consumeRecovery(recoveryToken!)).toBeNull();
@@ -114,13 +114,13 @@ describe('recuperação de resultado', () => {
   });
 
   it('link de compartilhamento é somente leitura: vê o resultado, mas não troca e-mail, não exclui e não compartilha', async () => {
-    const owner = await playQuiz(CONFLICT_CHOICES);
+    const owner = await playQuiz(BREAKUP_CHOICES);
     const sharePath = await createShareLink(owner.token);
     const viewerToken = sharePath.replace('/resultado/', '');
 
     const view = await getResultView(viewerToken);
     expect(view?.access).toBe('viewer');
-    expect(view?.primary?.categoryId).toBe('cat_conflitos');
+    expect(view?.primary?.categoryId).toBe('cat_termino');
     expect(view?.hasEmail).toBe(false);
     expect((await getResultView(owner.token))?.access).toBe('owner');
 

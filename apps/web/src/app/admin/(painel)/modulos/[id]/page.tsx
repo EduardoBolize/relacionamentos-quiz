@@ -12,7 +12,14 @@ export default async function EditModulePage({ params }: { params: Promise<{ id:
   await requireAdminPage();
   const { id } = await params;
   const [module, categories] = await Promise.all([
-    db().bookModule.findUnique({ where: { id }, include: { categories: true, _count: { select: { orderItems: true } } } }),
+    db().bookModule.findUnique({
+      where: { id },
+      include: {
+        categories: true,
+        videos: { orderBy: [{ position: 'asc' }, { createdAt: 'asc' }] },
+        _count: { select: { orderItems: true } },
+      },
+    }),
     db().category.findMany({ orderBy: [{ position: 'asc' }, { name: 'asc' }] }),
   ]);
   if (!module) notFound();
@@ -45,9 +52,21 @@ export default async function EditModulePage({ params }: { params: Promise<{ id:
           content: module.content,
           priceCents: module.priceCents,
           coverEmoji: module.coverEmoji,
+          checkoutUrl: module.checkoutUrl ?? '',
           position: module.position,
           active: module.active,
           categoryIds: module.categories.map((link) => link.categoryId),
+          videos: module.videos.map((video) => ({
+            id: video.id,
+            key: video.id,
+            title: video.title,
+            durationSeconds: video.durationSeconds,
+            script: video.script,
+            keyPoints: video.keyPoints,
+            videoUrl: video.videoUrl ?? '',
+            isPreview: video.isPreview,
+            active: video.active,
+          })),
         }}
       />
     </>

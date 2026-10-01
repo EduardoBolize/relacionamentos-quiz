@@ -12,8 +12,9 @@ import { z } from 'zod';
 import { audit, type AdminContext } from '../auth/admin-auth';
 import { db } from '../db';
 import { invalidateQuizDefinition } from '../definition';
+import { parseVideoUrl } from '@/lib/video';
 import { HttpError } from '../http';
-import { SETTING_KEYS, settingsUpdateSchema } from '../settings';
+import { SETTING_KEYS, optionalExternalUrlSchema, settingsUpdateSchema } from '../settings';
 
 // ───────────────────────────── Esquemas de entrada ─────────────────────────────
 
@@ -101,6 +102,27 @@ export const ruleInputSchema = z
   })
   .strict();
 
+export const videoInputSchema = z
+  .object({
+    id: id.optional(),
+    title: z.string().trim().min(2).max(120),
+    durationSeconds: z.number().int().min(5).max(3600),
+    script: z.string().trim().max(6000),
+    keyPoints: z.string().trim().max(1000),
+    videoUrl: z
+      .string()
+      .trim()
+      .max(500)
+      .nullable()
+      .transform((value) => (value ? value : null))
+      .refine((value) => value === null || parseVideoUrl(value) !== null, {
+        message: 'Use um link do YouTube, Vimeo, Panda Video ou de um arquivo .mp4 (https:// ou /videos/...).',
+      }),
+    isPreview: z.boolean(),
+    active: z.boolean(),
+  })
+  .strict();
+
 export const moduleInputSchema = z
   .object({
     slug,
@@ -111,9 +133,12 @@ export const moduleInputSchema = z
     content: z.string().trim().min(10).max(200_000),
     priceCents: z.number().int().min(0).max(10_000_000),
     coverEmoji: z.string().trim().min(1).max(8),
+    checkoutUrl: optionalExternalUrlSchema.optional(),
     position,
     active: z.boolean(),
     categoryIds: z.array(id).max(20),
+    /** Aulas em vídeo, na ordem. Ausente = mantém as aulas atuais. */
+    videos: z.array(videoInputSchema).max(20).optional(),
   })
   .strict();
 
@@ -349,7 +374,7 @@ export async function deleteRule(admin: AdminContext, ruleId: string) {
 // ───────────────────────────── Módulos e preços ─────────────────────────────
 
 export async function saveModule(admin: AdminContext, moduleId: string | null, raw: unknown) {
-  const { categoryIds: rawCategoryIds, ...data } = moduleInputSchema.parse(raw);
+  const { categoryIds: rawCategoryIds, videos, ...data } = moduleInputSchema.parse(raw);
   const bookModule = await guard(
     () =>
       db().$transaction(async (tx) => {
@@ -364,12 +389,29 @@ export async function saveModule(admin: AdminContext, moduleId: string | null, r
         if (categoryIds.length) {
           await tx.moduleCategory.createMany({ data: categoryIds.map((categoryId) => ({ moduleId: saved.id, categoryId })) });
         }
+        if (videos) await syncModuleVideos(tx, saved.id, videos);
         return saved;
       }),
     'Já existe um módulo com este identificador (slug).',
   );
-  await audit(admin.id, moduleId ? 'update' : 'create', 'module', bookModule.id, `Módulo "${bookModule.title}" (${formatBRL(bookModule.priceCents)})`);
+  const lessons = videos ? `, ${videos.length} aula(s)` : '';
+  await audit(admin.id, moduleId ? 'update' : 'create', 'module', bookModule.id, `Módulo "${bookModule.title}" (${formatBRL(bookModule.priceCents)}${lessons})`);
   return done(bookModule);
+}
+
+/**
+ * Grava as aulas do módulo na ordem recebida: atualiza as existentes (pelo id), cria as novas e
+ * remove as que saíram da lista. Ids de aulas de outro módulo são tratados como aulas novas.
+ */
+async function syncModuleVideos(tx: Prisma.TransactionClient, moduleId: string, videos: z.infer<typeof videoInputSchema>[]) {
+  const existing = new Set((await tx.moduleVideo.findMany({ where: { moduleId }, select: { id: true } })).map((video) => video.id));
+  const keep = videos.flatMap((video) => (video.id && existing.has(video.id) ? [video.id] : []));
+  await tx.moduleVideo.deleteMany({ where: { moduleId, id: { notIn: keep } } });
+  for (const [position, { id: videoId, ...video }] of videos.entries()) {
+    const data = { ...video, position };
+    if (videoId && existing.has(videoId)) await tx.moduleVideo.update({ where: { id: videoId }, data });
+    else await tx.moduleVideo.create({ data: { ...data, moduleId } });
+  }
 }
 
 export async function deleteModule(admin: AdminContext, moduleId: string) {

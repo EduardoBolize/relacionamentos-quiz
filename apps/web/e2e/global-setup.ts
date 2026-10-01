@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { rmSync } from 'node:fs';
 import path from 'node:path';
 import { createAdminUser, createPrismaClient, findRepoRoot, resolveDatabaseUrl } from '@relacionamentos/db';
-import { seedDemoContent } from '@relacionamentos/db/seed';
+import { seedCourseContent } from '@relacionamentos/db/seed';
 import { E2E_ENV } from '../playwright.config';
 
 /** Banco novo para cada execução E2E + administrador com senha aleatória (passada aos testes por env). */
@@ -20,7 +20,7 @@ export default async function globalSetup() {
   });
 
   const prisma = createPrismaClient(url);
-  await seedDemoContent(prisma, { force: true, log: () => undefined });
+  await seedCourseContent(prisma, { force: true, log: () => undefined });
   const password = randomBytes(18).toString('base64url');
   await createAdminUser(prisma, { email: 'e2e-admin@example.com', name: 'Admin E2E', password }, { logN: 12 });
   await prisma.$disconnect();

@@ -40,3 +40,6 @@ Thumbs.db
 .idea/
 *.log
 npm-debug.log*
+
+# vídeos-rascunho gerados localmente (`npm run curso:videos`) — pesados demais para o git
+curso-kiwify/videos-rascunho/

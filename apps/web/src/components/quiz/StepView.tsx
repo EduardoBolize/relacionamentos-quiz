@@ -197,8 +197,8 @@ export function StepView({ step, selected, onChange, onPick, onSubmit, busy, err
 function PriceOfferCard({ step }: { step: StepDTO }) {
   const bookModule = step.module!;
   return (
-    <section aria-label="Seção do livro relacionada a esta etapa" className="mb-8 rounded-2xl bg-night-800 p-5 ring-1 ring-white/10 sm:p-6">
-      <p className="text-xs font-semibold tracking-wide text-brand-300 uppercase">Seção do livro desta etapa</p>
+    <section aria-label="Módulo relacionado a esta etapa" className="mb-8 rounded-2xl bg-night-800 p-5 ring-1 ring-white/10 sm:p-6">
+      <p className="text-xs font-semibold tracking-wide text-brand-300 uppercase">Módulo desta etapa</p>
       <div className="mt-3 flex gap-4">
         <span className="text-4xl" aria-hidden="true">{bookModule.coverEmoji}</span>
         <div className="min-w-0">
@@ -218,7 +218,7 @@ function PriceOfferCard({ step }: { step: StepDTO }) {
       ) : null}
       <div className="mt-5 flex flex-wrap items-end justify-between gap-3 border-t border-white/10 pt-4">
         <p>
-          <span className="block text-xs text-night-300">Valor desta seção</span>
+          <span className="block text-xs text-night-300">Valor deste módulo</span>
           <span className="font-display text-3xl font-extrabold text-white">{formatBRL(bookModule.priceCents)}</span>
         </p>
         <Link
@@ -227,7 +227,7 @@ function PriceOfferCard({ step }: { step: StepDTO }) {
           rel="noopener"
           className="inline-flex items-center gap-1 text-sm font-semibold text-brand-300 hover:text-brand-200"
         >
-          Ler a prévia <Icon name="external" className="h-4 w-4" />
+          Ver a prévia <Icon name="external" className="h-4 w-4" />
           <span className="sr-only">(abre em nova aba)</span>
         </Link>
       </div>

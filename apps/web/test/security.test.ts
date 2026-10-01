@@ -78,6 +78,14 @@ describe('markdown seguro (conteúdo editado no admin)', () => {
     expect(blocks.map((b) => b.type)).toEqual(['heading', 'list', 'quote']);
     expect(extractHighlights('## x\n- um\n- dois\n- três', 2)).toEqual(['um', 'dois']);
   });
+
+  it('listas numeradas viram uma lista ordenada separada da lista com marcadores', () => {
+    const blocks = parseMarkdown('1. primeiro\n2) segundo\n- solto');
+    expect(blocks).toEqual([
+      { type: 'list', ordered: true, items: [[{ type: 'text', value: 'primeiro' }], [{ type: 'text', value: 'segundo' }]] },
+      { type: 'list', ordered: false, items: [[{ type: 'text', value: 'solto' }]] },
+    ]);
+  });
 });
 
 describe('rotas HTTP do quiz', () => {
@@ -99,7 +107,7 @@ describe('rotas HTTP do quiz', () => {
 
     const cookie = setCookie.split(';')[0]!;
     const current = await getQuizSession(new NextRequest(`${ORIGIN}/api/quiz/session`, { headers: { cookie } }), undefined as never);
-    expect(await current.json()).toMatchObject({ status: 'in_progress', step: { id: 'q_status' } });
+    expect(await current.json()).toMatchObject({ status: 'in_progress', step: { id: 'q_momento' } });
   });
 
   it('sem cookie, o GET informa que não há sessão', async () => {
@@ -112,7 +120,7 @@ describe('rotas HTTP do quiz', () => {
       new NextRequest(`${ORIGIN}/api/quiz/session/answer`, {
         method: 'POST',
         headers: { origin: 'https://evil.example', 'content-type': 'application/json' },
-        body: JSON.stringify({ stepId: 'q_status', optionIds: ['opt_status_juntos'] }),
+        body: JSON.stringify({ stepId: 'q_momento', optionIds: ['opt_momento_casada'] }),
       }),
       undefined as never,
     );
@@ -122,7 +130,7 @@ describe('rotas HTTP do quiz', () => {
       new NextRequest(`${ORIGIN}/api/quiz/session/answer`, {
         method: 'POST',
         headers: { origin: ORIGIN, 'content-type': 'application/json' },
-        body: JSON.stringify({ stepId: 'q_status', optionIds: ['opt_status_juntos'] }),
+        body: JSON.stringify({ stepId: 'q_momento', optionIds: ['opt_momento_casada'] }),
       }),
       undefined as never,
     );

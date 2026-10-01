@@ -1,48 +1,71 @@
 import { checkPasswordStrength, createAdminUser, normalizeEmail } from '../src/admin-users';
 import type { PrismaClient } from '../src/generated/prisma/client';
-import { demoCategories, demoModules, demoRules, demoSettings, demoStages } from './demo-content';
+import { courseCategories, courseModules, courseRules, courseSettings, courseStages } from './content';
 
 type Log = (message: string) => void;
 
 /**
- * Grava o conteúdo de demonstração. É idempotente: usa `upsert` com ids fixos, então rodar de novo
- * não duplica nada. Sem `force`, não mexe em um banco que já tem conteúdo (preserva edições do admin).
+ * Grava o conteúdo do curso "Fórmula do Amor". É idempotente: usa `upsert` com ids fixos, então
+ * rodar de novo não duplica nada. Sem `force`, não mexe em um banco que já tem conteúdo (preserva
+ * as edições feitas no admin).
+ *
+ * Com `force`, restaura o conteúdo padrão: além de regravar os itens do curso, remove categorias,
+ * etapas, perguntas e regras que não fazem parte dele e desativa módulos antigos (módulos já
+ * vendidos não podem ser excluídos, para preservar o histórico dos pedidos).
  */
-export async function seedDemoContent(
+export async function seedCourseContent(
   prisma: PrismaClient,
   { force = false, log = console.log as Log } = {},
 ): Promise<{ seeded: boolean }> {
   const existing = await prisma.category.count();
   if (existing > 0 && !force) {
-    log('• Conteúdo já existe — mantido (use --force para restaurar o conteúdo de demonstração).');
+    log('• Conteúdo já existe — mantido (use --force para restaurar o conteúdo padrão do curso).');
     await seedSettings(prisma, false);
     return { seeded: false };
   }
 
   await prisma.$transaction(
     async (tx) => {
-      for (const [position, category] of demoCategories.entries()) {
+      if (force) await removeContentOutsideCourse(tx);
+
+      for (const [position, category] of courseCategories.entries()) {
         const data = { ...category, position, active: true };
         await tx.category.upsert({ where: { id: category.id }, create: data, update: data });
       }
 
-      for (const [position, module] of demoModules.entries()) {
-        const { categoryIds, ...fields } = module;
+      for (const [position, module] of courseModules.entries()) {
+        const { categoryIds, videos, ...fields } = module;
         const data = { ...fields, position, active: true };
         await tx.bookModule.upsert({ where: { id: module.id }, create: data, update: data });
         await tx.moduleCategory.deleteMany({ where: { moduleId: module.id } });
         await tx.moduleCategory.createMany({
           data: categoryIds.map((categoryId) => ({ moduleId: module.id, categoryId })),
         });
+
+        await tx.moduleVideo.deleteMany({ where: { moduleId: module.id, id: { notIn: videos.map((video) => video.id) } } });
+        for (const [videoPosition, video] of videos.entries()) {
+          const videoData = {
+            moduleId: module.id,
+            title: video.title,
+            durationSeconds: video.durationSeconds,
+            script: video.script,
+            keyPoints: video.keyPoints,
+            isPreview: video.isPreview ?? false,
+            position: videoPosition,
+            active: true,
+          };
+          // O link do vídeo não é sobrescrito: ele é cadastrado no admin depois da gravação.
+          await tx.moduleVideo.upsert({ where: { id: video.id }, create: { id: video.id, ...videoData }, update: videoData });
+        }
       }
 
-      for (const [stagePosition, stage] of demoStages.entries()) {
+      for (const [stagePosition, stage] of courseStages.entries()) {
         const stageData = {
           title: stage.title,
           description: stage.description,
           position: stagePosition,
           active: true,
-          conditionJson: null,
+          conditionJson: stage.condition ? JSON.stringify(stage.condition) : null,
           offerModuleId: stage.offerModuleId ?? null,
           priceQuestionEnabled: stage.priceQuestionEnabled ?? true,
           priceQuestionMinScore: stage.priceQuestionMinScore ?? 0,
@@ -86,7 +109,7 @@ export async function seedDemoContent(
         }
       }
 
-      for (const rule of demoRules) {
+      for (const rule of courseRules) {
         const data = {
           name: rule.name,
           description: rule.description,
@@ -102,15 +125,32 @@ export async function seedDemoContent(
   );
 
   await seedSettings(prisma, force);
+  const questionCount = courseStages.reduce((n, s) => n + s.questions.length, 0);
+  const videoCount = courseModules.reduce((n, m) => n + m.videos.length, 0);
   log(
-    `• Conteúdo de demonstração gravado: ${demoCategories.length} categorias, ${demoModules.length} módulos, ` +
-      `${demoStages.length} etapas, ${demoStages.reduce((n, s) => n + s.questions.length, 0)} perguntas e ${demoRules.length} regras.`,
+    `• Conteúdo do curso gravado: ${courseCategories.length} categorias, ${courseModules.length} módulos, ` +
+      `${videoCount} aulas em vídeo, ${courseStages.length} etapas, ${questionCount} perguntas e ${courseRules.length} regras.`,
   );
   return { seeded: true };
 }
 
+type Tx = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
+
+/** Remove (ou desativa, no caso de módulos vendidos) o que não pertence ao conteúdo padrão. */
+async function removeContentOutsideCourse(tx: Tx): Promise<void> {
+  const moduleIds = courseModules.map((module) => module.id);
+  const questionIds = courseStages.flatMap((stage) => stage.questions.map((question) => question.id));
+
+  await tx.rule.deleteMany({ where: { id: { notIn: courseRules.map((rule) => rule.id) } } });
+  await tx.question.deleteMany({ where: { id: { notIn: questionIds } } });
+  await tx.stage.deleteMany({ where: { id: { notIn: courseStages.map((stage) => stage.id) } } });
+  await tx.category.deleteMany({ where: { id: { notIn: courseCategories.map((category) => category.id) } } });
+  await tx.bookModule.deleteMany({ where: { id: { notIn: moduleIds }, orderItems: { none: {} } } });
+  await tx.bookModule.updateMany({ where: { id: { notIn: moduleIds } }, data: { active: false } });
+}
+
 async function seedSettings(prisma: PrismaClient, overwrite: boolean): Promise<void> {
-  for (const [key, value] of Object.entries(demoSettings)) {
+  for (const [key, value] of Object.entries(courseSettings)) {
     const json = JSON.stringify(value);
     await prisma.setting.upsert({
       where: { key },

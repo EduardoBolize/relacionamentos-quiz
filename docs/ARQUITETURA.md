@@ -10,8 +10,8 @@
    implementações trocáveis.
 3. **Servidor é a fonte da verdade.** Pontuação, preços, validação de respostas e liberação de conteúdo acontecem no
    servidor. O navegador recebe apenas o necessário para exibir a pergunta atual (sem pesos nem regras).
-4. **Configuração em dados, não em código.** Perguntas, pesos, condições, regras, módulos, preços e limites ficam no
-   banco e são editados pelo painel.
+4. **Configuração em dados, não em código.** Perguntas, pesos, condições, regras, módulos, aulas em vídeo, preços,
+   oferta do curso, respostas às objeções e limites ficam no banco e são editados pelo painel.
 
 ## Camadas do app web
 
@@ -34,8 +34,10 @@ Uma regra de ESLint impede que código de cliente importe `@/server/*`, o banco 
 ```
 Category ─┬─< OptionWeight >─ Option >─ Question >─ Stage ─? BookModule (módulo ofertado na etapa)
           └─< ModuleCategory >─ BookModule ─< OrderItem >─ Order ─< OrderAccessToken
+                                BookModule ─< ModuleVideo (aulas: roteiro, destaques, link do vídeo)
 Rule (condição + efeitos em JSON)          Order ─< PaymentEvent (idempotência de webhooks)
-Setting (engine | pricing | payment)       Order >─? QuizSession
+Setting (engine | pricing | payment | course | objections)
+                                           Order >─? QuizSession
 QuizSession ─< SessionAccessToken          RecoveryToken (links mágicos de recuperação)
 AdminUser ─< AdminSession, AuditLog        AnalyticsEvent, EmailOutbox
 ```
@@ -43,6 +45,10 @@ AdminUser ─< AdminSession, AuditLog        AnalyticsEvent, EmailOutbox
 - **Tokens** (resultado, pedido, recuperação, sessão admin) são guardados apenas como hash SHA-256.
 - **Resultado congelado**: `QuizSession.resultJson` guarda o resultado calculado na conclusão.
 - **Cópia de preço**: `OrderItem` guarda título e preço do momento da compra.
+- **Oferta**: `src/server/offer.ts` calcula, a partir do cadastro, o preço "a partir de", o valor do curso completo
+  (mesmo cálculo do checkout), as parcelas, a garantia e o destino dos botões de compra (checkout do site ou link
+  externo cadastrado em `BookModule.checkoutUrl` / `course.fullCourseCheckoutUrl`). As respostas às objeções
+  (`objections`) usam marcadores como `{preco_curso}`, trocados por esses valores.
 - SQLite em desenvolvimento (modo WAL); campos JSON como texto e “enums” como strings validadas → migração simples
   para PostgreSQL.
 
@@ -71,6 +77,15 @@ provedor ─► POST /webhooks/payments ─► assinatura HMAC ─► PaymentEve
         ─► novo link de acesso por e-mail ─► conteúdo liberado em /pedido/<token>/modulos/<slug>
 ```
 
+### Material do curso para a Kiwify
+
+```
+banco (módulos, aulas, oferta, objeções) ─► apps/web/scripts/exportar-curso.ts ─► curso-kiwify/
+   modulos/NN-slug/ (descrição, roteiros, texto .md/.html/.pdf), estrutura.csv, aulas.json, textos de venda
+aulas.json ─► apps/web/scripts/gerar-videos-rascunho.ps1 (Windows: SAPI + GDI+ + Windows.Media.Editing)
+   ─► curso-kiwify/videos-rascunho/ (MP4 720p + slides PNG; fora do Git)
+```
+
 ## Decisões
 
 | Decisão | Motivo |
@@ -84,3 +99,7 @@ provedor ─► POST /webhooks/payments ─► assinatura HMAC ─► PaymentEve
 | Condições avaliadas “para frente” | Sem ciclos; respostas de perguntas ocultadas são descartadas na conclusão. |
 | Normalização por perguntas respondidas | Temas com mais perguntas não dominam; resultado comparável entre temas. |
 | Analytics com consentimento e sem PII | LGPD; métricas de negócio vêm de dados operacionais agregados. |
+| Uma categoria por módulo do curso | O tema principal aponta direto para o módulo ideal; regras complementam (amor-próprio como raiz, módulo do momento). |
+| Objeções como sinalizadores de regra | Reaproveita o motor (sem código novo): a resposta vira `objecao_*` e o texto fica editável no painel. |
+| Vídeos por link, não por upload | O site não hospeda nem transcodifica vídeo; YouTube/Vimeo/Panda/Kiwify fazem isso melhor. Lista fechada de players. |
+| Checkout externo opcional por módulo | Permite vender pela Kiwify sem integrar API de pagamento; o checkout próprio continua para o resto. |

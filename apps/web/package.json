@@ -11,7 +11,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "curso:exportar": "tsx scripts/exportar-curso.ts",
+    "curso:videos": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gerar-videos-rascunho.ps1"
   },
   "dependencies": {
     "@relacionamentos/analytics": "*",

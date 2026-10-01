@@ -1,9 +1,9 @@
 /**
  * Markdown SEGURO (subconjunto) para os textos editados no admin.
  *
- * Suporta: `## título`, `### subtítulo`, parágrafos, listas (`- item`), citações (`> texto`),
- * **negrito** e *itálico*. Não há HTML bruto nem links — o resultado vira elementos React com
- * texto escapado, então um conteúdo malicioso não consegue injetar scripts (XSS).
+ * Suporta: `## título`, `### subtítulo`, parágrafos, listas (`- item` e `1. item`), citações
+ * (`> texto`), **negrito** e *itálico*. Não há HTML bruto nem links — o resultado vira elementos
+ * React com texto escapado, então um conteúdo malicioso não consegue injetar scripts (XSS).
  */
 
 export type Inline =
@@ -14,7 +14,7 @@ export type Inline =
 export type Block =
   | { type: 'heading'; level: 2 | 3; children: Inline[] }
   | { type: 'paragraph'; children: Inline[] }
-  | { type: 'list'; items: Inline[][] }
+  | { type: 'list'; ordered: boolean; items: Inline[][] }
   | { type: 'quote'; children: Inline[] };
 
 const MAX_SOURCE_LENGTH = 100_000;
@@ -39,6 +39,7 @@ export function parseMarkdown(source: string): Block[] {
   const blocks: Block[] = [];
   let paragraph: string[] = [];
   let list: Inline[][] = [];
+  let listOrdered = false;
   let quote: string[] = [];
 
   const flushParagraph = () => {
@@ -46,7 +47,7 @@ export function parseMarkdown(source: string): Block[] {
     paragraph = [];
   };
   const flushList = () => {
-    if (list.length) blocks.push({ type: 'list', items: list });
+    if (list.length) blocks.push({ type: 'list', ordered: listOrdered, items: list });
     list = [];
   };
   const flushQuote = () => {
@@ -71,10 +72,13 @@ export function parseMarkdown(source: string): Block[] {
       blocks.push({ type: 'heading', level: heading[1]!.length === 3 ? 3 : 2, children: parseInline(heading[2]!) });
       continue;
     }
-    const item = /^[-*]\s+(.+)$/.exec(line);
+    const item = /^[-*]\s+(.+)$/.exec(line) ?? /^\d{1,3}[.)]\s+(.+)$/.exec(line);
     if (item) {
+      const ordered = !/^[-*]/.test(line);
       flushParagraph();
       flushQuote();
+      if (list.length && ordered !== listOrdered) flushList();
+      listOrdered = ordered;
       list.push(parseInline(item[1]!));
       continue;
     }

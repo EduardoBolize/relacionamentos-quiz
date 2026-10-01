@@ -31,7 +31,7 @@ export default async function OrderPage({ params }: { params: Promise<{ token: s
                 <p className="flex items-center gap-2 text-sm font-semibold text-mint-600">
                   <Icon name="check" className="h-5 w-5" /> Pagamento confirmado
                 </p>
-                <h1 className="mt-2 text-2xl font-bold text-night-900">Tudo certo, {order.customerFirstName}! Boa leitura.</h1>
+                <h1 className="mt-2 text-2xl font-bold text-night-900">Tudo certo, {order.customerFirstName}! Bons estudos.</h1>
                 <p className="mt-2 text-slate-600">
                   Seu acesso está liberado. Guarde esta página (ou o link enviado por e-mail) para voltar quando quiser.
                 </p>
@@ -43,7 +43,7 @@ export default async function OrderPage({ params }: { params: Promise<{ token: s
                         <span className="font-semibold text-slate-900">{item.title}</span>
                       </span>
                       <ButtonLink href={`/pedido/${token}/modulos/${item.slug}`} size="sm">
-                        Ler agora
+                        Acessar aulas
                       </ButtonLink>
                     </li>
                   ))}
@@ -131,7 +131,7 @@ export default async function OrderPage({ params }: { params: Promise<{ token: s
                 <h1 className="text-2xl font-bold text-night-900">
                   {order.status === 'expired' ? 'O prazo de pagamento terminou' : 'Pedido cancelado'}
                 </h1>
-                <p className="mt-2 text-slate-600">Sem problemas: você pode gerar um novo pedido com as mesmas seções.</p>
+                <p className="mt-2 text-slate-600">Sem problemas: você pode gerar um novo pedido com os mesmos módulos.</p>
                 <ButtonLink href={retryHref} className="mt-6">
                   Gerar novo pedido
                 </ButtonLink>
